@@ -54,6 +54,7 @@ lemma defn_of_add_with_index {len : ℕ} {α : Type} [CommRing α] [Inhabited α
 lemma defn_of_add_no_index {α : Type} [CommRing α] [Inhabited α] (p q : linear_equation len α) : (p + q).coefficients = Array.map (fun x => x.1 + x.2) (Array.zip p.coefficients q.coefficients) := by
   rfl
 
+/- Show that we can swap `+` and `[i]` using `zip_index_swap`: -/
 
 lemma index_is_linear {len : ℕ} {α : Type} [CommRing α] [Inhabited α]
   (p q : linear_equation len α) (i : ℕ) (h : i < len) :
@@ -62,54 +63,140 @@ lemma index_is_linear {len : ℕ} {α : Type} [CommRing α] [Inhabited α]
   rw [zip_index_swap h]
   . exact p.length
   . exact q.length
-  done
 
+/- Since we'll need to show that adding two elements of `linear_equation len α` gives an array of length `len`: -/
+
+lemma add_size {len : ℕ} {α : Type} [CommRing α] [Inhabited α] (p q : linear_equation len α) : (p + q).coefficients.size = p.coefficients.size := by
+  rw [defn_of_add_no_index, add_zip_array_size, p.length]
+
+lemma add_size_second_argument {len : ℕ} {α : Type} [CommRing α] [Inhabited α] (p q : linear_equation len α) : (p + q).coefficients.size = q.coefficients.size := by
+  rw [defn_of_add_no_index, add_zip_array_size, q.length]
 
 /- Show add is commutative: -/
 
-lemma add_zip_comm {α : Type} [CommRing α] [Inhabited α] (p q : Array α) : Array.map (fun x => x.1 + x.2) (p.zip q) = Array.map (fun x => x.1 + x.2) (q.zip p) := by
-  ext
-  . simp only [Array.size_map, Array.size_zip]
-    exact Nat.min_comm p.size q.size
-  . sorry
-
 theorem add_comm_lin_eqn {α : Type} [CommRing α] [Inhabited α] (p q : linear_equation len α) : p + q = q + p := by
-  ext
+  apply linear_equation.ext
+  apply Array.ext
   . rw [defn_of_add_no_index, defn_of_add_no_index, add_zip_array_size, add_zip_array_size]
-  . rw [defn_of_add_with_index, defn_of_add_with_index]
+  . intro i h₁ h₂
+    rw [index_is_linear, index_is_linear, add_comm]
+    . rw [add_size, p.length] at h₁; assumption
+    . rw [add_size, q.length] at h₂; assumption
 
 /- Show add is associative: -/
 
 theorem add_assoc_lin_eqn {len : ℕ} {α : Type} [CommRing α] [Inhabited α] (p q r : linear_equation len α) : p + q + r = p + (q + r) := by
-  ext
+  apply linear_equation.ext
+  apply Array.ext
   . rw [(p + q + r).length, (p + (q + r)).length]
-  . sorry
+  . intro i h₁ h₂
+    have h₃ : i < len := by
+      rw [add_size, add_size, p.length] at h₁
+      exact h₁
+    rw [index_is_linear, index_is_linear, index_is_linear, index_is_linear, add_assoc] <;> exact h₃
+
+/- Define the zero element: -/
+
+instance {len : ℕ} {α : Type} [CommRing α] [Inhabited α] : Zero (linear_equation len α) where
+  zero := ⟨Array.mkArray len 0, Array.size_mkArray len 0⟩
+
+@[simp]
+lemma defn_of_zero {len : ℕ} {α : Type} [CommRing α] [Inhabited α] : (0 : (linear_equation len α)).coefficients = Array.mkArray len 0 := by rfl
+
+/- Prove stuff about the zero element -/
+
+lemma zero_add_lin_eqn {len : ℕ} {α : Type} [CommRing α] [Inhabited α] (p : linear_equation len α) : 0 + p = p := by
+  apply linear_equation.ext
+  apply Array.ext
+  . rw [add_size_second_argument]
+  . intro i h₁ h₂
+    rw [index_is_linear]
+    simp
+    rw [p.length] at h₂
+    assumption
+
+/- Define negation -/
+
+instance {len : ℕ} {α : Type} [CommRing α] [Inhabited α] : Neg (linear_equation len α) where
+  neg p := ⟨Array.map (fun x => -x) p.coefficients, by rw [Array.size_map, p.length]⟩
+
+@[simp]
+lemma defn_of_neg {len : ℕ} {α : Type} [CommRing α] [Inhabited α] (p : linear_equation len α) : (-p).coefficients = Array.map (fun x => -x) p.coefficients := by rfl
+
+/- Prove stuff about negation: -/
+
+lemma neg_add_cancel_lin_eqn {len : ℕ} {α : Type} [CommRing α] [Inhabited α] (p : linear_equation len α) : -p + p = 0 := by
+  apply linear_equation.ext
+  apply Array.ext
+  . simp [add_size_second_argument, p.length]
+  . intro i h₁ h₂
+    rw [index_is_linear]
+    simp
+    rw [add_size_second_argument, p.length] at h₁
+    assumption
 
 
-
-
-#check List.getElem_zip
-
-
-lemma add_zip_split_index {α : Type} [CommRing α] [Inhabited α] (p q : Array α) (h : p.size = q.size) (i : ℕ) (h₂ : i < p.size) : (Array.map (fun x => x.1 + x.2) (Array.zip p q))[i]'(by rw [Array.size_map, Array.size_zip, ← h]; simp; assumption ) = p[i]'h₂ + q[i]'(by rw [← h]; assumption) := by
-  simp
-  have : (p.zip q)[i]! = ⟨p[i]!, q[i]!⟩ := by
-    ext
-
-
-
-
-
-lemma array_add_size {α : Type*} [CommRing α] [Inhabited α] {len : ℕ} (p q : Array α) (h₁ : p.size = len) (h₂ : q.size = len) : (Array.map (fun x => x.1 + x.2) (Array.zip p q)).size = len := by
-  rw [Array.size_map, Array.size_zip, h₁, h₂]
-  simp
 
 def eval_poly {α : Type} [CommRing α] [Inhabited α] {len : ℕ} (poly : linear_equation len α) (pts : Array α) : α :=
   (∑ i < len - 1, pts[i]! * poly.coefficients[i]!) + poly.coefficients[len - 1]!
 
 /- We need to show that the set of linear equations is a module over the coefficient ring -/
 
-instance linear_equation_add_monoid (len : ℕ) (α : Type*) [CommRing α] [Inhabited α] : AddCommGroup (linear_equation len α) where
-  add p q := ⟨ Array.map (fun x => x.1 + x.2) (Array.zip p.coefficients q.coefficients), by rw [Array.size_map, Array.size_zip, p.length, q.length]; simp⟩
+lemma zip_index_pick_fst {α : Type} {n : ℕ} {p q : Array α} {h₁ : p.size = n} {h₂ : q.size = n} {i : ℕ} (h : i < n) :
+  ((p.zip q)[i]'(by aesop)).1 =
+  (Prod.mk (p[i]'(by aesop)) (q[i]'(by aesop))).1 := by
+  rw [zip_index_swap]
+  exact h
+  exact h₁
+  exact h₂
+
+lemma zip_index_pick_snd {α : Type} {n : ℕ} {p q : Array α} {h₁ : p.size = n} {h₂ : q.size = n} {i : ℕ} (h : i < n) :
+  ((p.zip q)[i]'(by aesop)).2 =
+  (Prod.mk (p[i]'(by aesop)) (q[i]'(by aesop))).2 := by
+  rw [zip_index_swap]
+  exact h
+  exact h₁
+  exact h₂
+
+
+
+instance (len : ℕ) (α : Type) [Field α] [Inhabited α] : AddCommMonoid (linear_equation len α) where
+  add p q := p + q
+  zero := 0
+  --neg p := -p
+  add_assoc := add_assoc_lin_eqn
+  add_comm := add_comm_lin_eqn
+  zero_add := zero_add_lin_eqn
+  --neg_add_cancel := neg_add_cancel_lin_eqn
+  add_zero := by
+    intro a
+    rw [add_comm_lin_eqn a 0]
+    exact zero_add_lin_eqn a
+  nsmul n p := ⟨Array.map (fun x => n * x) p.coefficients, by rw [Array.size_map, p.length]; ⟩
+  --zsmul z p := ⟨Array.map (fun x => z * x ) p.coefficients, by rw[ Array.size_map, p.length]⟩
+  nsmul_zero := by
+    intro x
+    apply linear_equation.ext
+    apply Array.ext
+    . rw [Array.size_map, linear_equation.length, linear_equation.length]
+    . intros
+      simp
+  nsmul_succ := by
+    intro n x
+    apply linear_equation.ext
+    apply Array.ext
+    . rw [Array.size_map, linear_equation.length, linear_equation.length]
+    . intro i h₁ h₂
+      simp [x.length] at h₁
+      simp
+      rw [zip_index_swap h₁]
+      simp
+      ring
+      rw [Array.size_map, x.length]
+      rw [x.length]
+
+instance (len : ℕ) (α : Type) [Field α] [Inhabited α] : Module α (linear_equation len α) where
+
+
 
 end linear_equations
