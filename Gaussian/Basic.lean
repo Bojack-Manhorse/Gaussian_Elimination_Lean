@@ -45,7 +45,7 @@ lemma defn_of_add {len : ℕ} {α : Type*} [CommRing α] [Inhabited α] (p q : l
 lemma index_is_linear {len : ℕ} {α : Type*} [CommRing α] [Inhabited α] [Add (linear_equation len α)]
   (p q : linear_equation len α) (i : ℕ) (h : i < len) :
   (p + q).coefficients[i]'(by rw [(p + q).length]; assumption ) = p.coefficients[i]'(by rw [p.length]; assumption ) + q.coefficients[i]'(by rw [q.length]; assumption ) := by
-  simp
+  rw [defn_of_add]
   sorry
 
 theorem add_assoc_lin_eqn {len : ℕ} {α : Type*} [CommRing α] [Inhabited α] (p q r : linear_equation len α) : p + q + r = p + (q + r) := by
