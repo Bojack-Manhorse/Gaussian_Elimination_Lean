@@ -1,4 +1,4 @@
-import Gaussian.LinearEquation
+import Gaussian.Linear_equation
 
 namespace GroupStructure
 
