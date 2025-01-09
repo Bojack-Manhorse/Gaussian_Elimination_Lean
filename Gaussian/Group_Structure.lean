@@ -1,5 +1,7 @@
 import Gaussian.Linear_equation
 
+set_option maxHeartbeats 1000000
+
 namespace GroupStructure
 
 open LinearEquation
@@ -47,7 +49,39 @@ instance {len : ℕ} {α : Type} [Field α] [Inhabited α] : SMul α (linear_equ
 @[simp]
 lemma defn_of_smul {len : ℕ} {α : Type} [Field α] [Inhabited α] (m : α) (p : linear_equation len α) : (m • p).coefficients = Array.map (fun x => m * x) p.coefficients := by rfl
 
+lemma add_smul_lin_eqn {len : ℕ} {α : Type} [Field α] [Inhabited α] (r s : α) (p : (linear_equation len α)) : (r + s) • p = r • p + s • p := by
+  apply linear_equation.ext
+  apply Array.ext
+  . simp
+  . intro i h₁ h₂
+    rw [((r + s) • p).length] at h₁
+    simp
+    rw [zip_index_pick_fst h₁, zip_index_pick_snd h₁]
+    simp
+    ring
+    rw [Array.size_map, p.length]
+    rw [Array.size_map, p.length]
+    rw [Array.size_map, p.length]
+    rw [Array.size_map, p.length]
 
+lemma smul_add_lin_eqn {len : ℕ} {α : Type} [Field α] [Inhabited α] (r : α) (p q : (linear_equation len α)) : r • (p + q) = r • p + r • q := by
+  apply linear_equation.ext
+  apply Array.ext
+  . simp
+  . intro i h₁ h₂
+    --rw [(r • (p + q)).length] at h₁
+    simp
+    repeat rw [zip_index_pick_fst h₁, zip_index_pick_snd h₁]
+    simp
+    ring
+    rw [Array.size_map, linear_equation.length, linear_equation.length]
+    rw [Array.size_map, linear_equation.length, linear_equation.length]
+    rw [Array.size_map, linear_equation.length, linear_equation.length]
+    rw [Array.size_map, linear_equation.length, linear_equation.length]
+    rw [linear_equation.length, linear_equation.length]
+    rw [linear_equation.length, linear_equation.length]
+    rw [linear_equation.length, linear_equation.length]
+    rw [linear_equation.length, linear_equation.length]
 
 instance (len : ℕ) (α : Type) [Field α] [Inhabited α] : Module α (linear_equation len α) where
   smul m p := m • p
@@ -59,20 +93,7 @@ instance (len : ℕ) (α : Type) [Field α] [Inhabited α] : Module α (linear_e
     . intros
       simp
 
-  add_smul r s p := by
-    apply linear_equation.ext
-    apply Array.ext
-    . simp
-    . --intro i h₁ h₂
-      --rw [((r + s) • p).length] at h₁
-      simp
-      rw [zip_index_pick_fst, zip_index_pick_snd h₁]
-      simp
-      ring
-      rw [Array.size_map, p.length]
-      rw [Array.size_map, p.length]
-      rw [Array.size_map, p.length]
-      rw [Array.size_map, p.length]
+  add_smul := add_smul_lin_eqn
 
   zero_smul p := by
     apply linear_equation.ext
@@ -86,15 +107,6 @@ instance (len : ℕ) (α : Type) [Field α] [Inhabited α] : Module α (linear_e
     apply linear_equation.ext
     apply Array.ext <;> simp
 
-  smul_add r p q := by
-    apply linear_equation.ext
-    apply Array.ext
-    . simp
-    . simp
-      rw [zip_index_pick_snd, zip_index_pick_fst]
-
-
-
-instance (len : ℕ) (α : Type) [Field α] [Inhabited α] : Module α (linear_equation len α) where
+  smul_add := smul_add_lin_eqn
 
 end GroupStructure
