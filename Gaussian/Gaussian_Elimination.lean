@@ -14,11 +14,17 @@ def add_row {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [In
     : linear_system k n α :=
   ⟨Array.set (system.equations.toArray) j (system.equations[j]'(by aesop) + coef • system.equations[i]'(by aesop)) (by aesop) , by simp ⟩
 
-
-/- Function to check if a system of equations has a solution: -/
-def has_solution {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
+/- Function to check if some `β : Vector α (n-1)` is a solution to a system of equations: -/
+def beta_is_solution {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
     (system : linear_system k n α) (β : Vector α (n - 1)) : Prop :=
   ∀ i < Nat.pred n , eval_poly system.equations[i]! β = 0
+
+theorem row_opr_preserves_sol {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
+    (system : linear_system k n α) (β : Vector α (n - 1))
+    (coef : α) (i j : ℕ) (h₁ : i < k) (h₂ : j < k) :
+    beta_is_solution system β → beta_is_solution (add_row system coef i j h₁ h₂) β := by
+  sorry
+
 
 
 
