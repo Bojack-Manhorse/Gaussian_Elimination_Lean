@@ -1,7 +1,5 @@
 import Gaussian.Linear_equation
 
-set_option maxHeartbeats 1000000
-
 namespace GroupStructure
 
 open LinearEquation
@@ -69,7 +67,6 @@ lemma smul_add_lin_eqn {len : ℕ} {α : Type} [Field α] [Inhabited α] (r : α
   apply Array.ext
   . simp
   . intro i h₁ h₂
-    --rw [(r • (p + q)).length] at h₁
     simp
     repeat rw [zip_index_pick_fst h₁, zip_index_pick_snd h₁]
     simp
