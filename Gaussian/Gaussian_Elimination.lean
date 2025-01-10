@@ -4,25 +4,46 @@ namespace Elimination
 
 open LinearEquation
 
-@[ext]
-structure linear_system (num_eqns num_vars : {x : ℕ // x > 1}) (α : Type) [Field α] [Inhabited α] where
-  equations : Vector (linear_equation num_vars α) num_eqns
+/--
+Allowing 0/1-linear systems is beneficial as it removes the dependent type in the definition of the structure.
 
-/- Function to add `coef * row i` to `row j`: -/
-def add_row {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
-    (system : linear_system k n α) (coef : α) (i j : ℕ) (h₁ : i < k) (h₂ : j < k)
-    : linear_system k n α :=
-  ⟨Array.set (system.equations.toArray) j (system.equations[j]'(by aesop) + coef • system.equations[i]'(by aesop)) (by aesop) , by simp ⟩
+Furthermore, `abbrev linear_system` (much like `def`) gives us more freebies than a structure.
+
+Furthermore, if you look at e.g. vector, it is customary types go first, so α ... then `num_eqn`.
+-/
+abbrev linear_system (α : Type) [Field α] [Inhabited α] (num_eqns num_vars : ℕ) :=
+  Vector (linear_equation num_vars α) num_eqns
+
+section
+
+/-
+So we don't need to repeat this over and over.
+-/
+variable {α : Type} [Field α] [Inhabited α]
+         {k n : ℕ}
+
+/-
+We get `Inhabited (linear_equation n α)...` for free because of the abbrev; magic!
+-/
+
+/-- Function to add `coef * row i` to `row j`.
+    NB I use /-- -/ comment style here to get the information on hovering the definition
+
+    NB minor rename on all of these, customary syntax for defs
+-/
+def addRow (system : linear_system α k n) (coef : α) (i j : Fin k) :
+            linear_system α k n :=
+  ⟨system.toArray.set j (system[j] + coef • system[i]) (by aesop), by simp⟩ -- the access syntax system[j] tries a bunch of stuff
+                                                                            -- one of which is `assumption`, so `h₁` and `h₂` (bundled in `Fin`s) get
+                                                                            -- picked up for free, no need for system[j]'proof
 
 /- Function to swap rows `i` and `j`: -/
-def swap_row {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
-    (system : linear_system k n α) (i j : ℕ) (h₁ : i < k) (h₂ : j < k)
-    : linear_system k n α :=
-  ⟨Vector.swap (system.equations) i j⟩
+def swapRow (system : linear_system α k n) (i j : Fin k) : linear_system α k n :=
+  system.swap i j
   --⟨Array.swap (system.equations.toArray) i j (by aesop) (by aesop) , by simp⟩
 
 @[simp]
-lemma swap_row_defn {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
+lemma swapRow_defn {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
     (system : linear_system k n α) (i j : ℕ) (h₁ : i < k) (h₂ : j < k)
     : (swap_row system i j h₁ h₂).equations = Vector.swap (system.equations) i j := by rfl
 
@@ -64,5 +85,6 @@ theorem swap_opr_preserves_sol {k n : {x : ℕ // x > 1}} {α : Type} [Field α]
   intro i ileqn
   rw [swap_row_defn]
 
+end
 
 end Elimination
