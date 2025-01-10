@@ -118,6 +118,10 @@ lemma neg_add_cancel_lin_eqn {len : ℕ} {α : Type} [CommRing α] [Inhabited α
 def eval_poly {α : Type} [CommRing α] [Inhabited α] {len : ℕ} (poly : linear_equation len α) (pts : Vector α (len - 1)) : α :=
   (∑ i < len - 1, pts[i]! * poly.coefficients[i]!) + poly.coefficients[len - 1]!
 
+@[simp]
+lemma eval_poly_defn {α : Type} [CommRing α] [Inhabited α] {len : {x : ℕ // x > 1}} (poly : linear_equation len α) (pts : Vector α (len - 1))
+    : eval_poly poly pts = (∑ i < ↑len - 1, pts[i]! * poly.coefficients[i]!) + poly.coefficients[↑len - 1]! := by rfl
+
 /- We need to show that the set of linear equations is a module over the coefficient ring -/
 
 lemma zip_index_pick_fst {α : Type} {n : ℕ} {p q : Array α} {h₁ : p.size = n} {h₂ : q.size = n} {i : ℕ} (h : i < n) :
