@@ -10,8 +10,11 @@ Allowing 0/1-linear systems is beneficial as it removes the dependent type in th
 Furthermore, `abbrev linear_system` (much like `def`) gives us more freebies than a structure.
 
 Furthermore, if you look at e.g. vector, it is customary types go first, so α ... then `num_eqn`.
+
+If you want to later prove something about systems that are like... 'well formed'?
+You can always say `∀ k (2 ≤ k) (s : linearSystem _ k _), something_holds s` kind of deal.
 -/
-abbrev linear_system (α : Type) [Field α] [Inhabited α] (num_eqns num_vars : ℕ) :=
+abbrev linearSystem (α : Type) [Field α] [Inhabited α] (num_eqns num_vars : ℕ) :=
   Vector (linear_equation num_vars α) num_eqns
 
 section
@@ -22,37 +25,41 @@ So we don't need to repeat this over and over.
 variable {α : Type} [Field α] [Inhabited α]
          {k n : ℕ}
 
-/-
-We get `Inhabited (linear_equation n α)...` for free because of the abbrev; magic!
+/--
+@Bojack: linear_equation should also be a `Vector`, you get its instances for free if you make
+it an abbrev.
 -/
+instance [Inhabited α] : Inhabited (linear_equation n α) :=
+  ⟨{coefficients := Array.replicate n default, length := by simp}⟩
 
 /-- Function to add `coef * row i` to `row j`.
     NB I use /-- -/ comment style here to get the information on hovering the definition
 
     NB minor rename on all of these, customary syntax for defs
 -/
-def addRow (system : linear_system α k n) (coef : α) (i j : Fin k) :
-            linear_system α k n :=
+def addRow (system : linearSystem α k n) (coef : α) (i j : Fin k) : linearSystem α k n :=
   ⟨system.toArray.set j (system[j] + coef • system[i]) (by aesop), by simp⟩ -- the access syntax system[j] tries a bunch of stuff
                                                                             -- one of which is `assumption`, so `h₁` and `h₂` (bundled in `Fin`s) get
                                                                             -- picked up for free, no need for system[j]'proof
 
 /- Function to swap rows `i` and `j`: -/
-def swapRow (system : linear_system α k n) (i j : Fin k) : linear_system α k n :=
+def swapRow (system : linearSystem α k n) (i j : Fin k) : linearSystem α k n :=
   system.swap i j
   --⟨Array.swap (system.equations.toArray) i j (by aesop) (by aesop) , by simp⟩
 
-@[simp]
-lemma swapRow_defn {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
-    (system : linear_system k n α) (i j : ℕ) (h₁ : i < k) (h₂ : j < k)
-    : (swap_row system i j h₁ h₂).equations = Vector.swap (system.equations) i j := by rfl
+-- @[simp]
+-- lemma swapRow_defn {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
+--     (system : linear_system k n α) (i j : ℕ) (h₁ : i < k) (h₂ : j < k)
+--     : (swap_row system i j h₁ h₂).equations = Vector.swap (system.equations) i j := by rfl
 
 
 /- Function to check if some `β : Vector α (n-1)` is a solution to a system of equations: -/
-def beta_is_solution {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
-    (system : linear_system k n α) (β : Vector α (n - 1)) : Prop :=
-  ∀ i < Nat.pred n , eval_poly system.equations[i]! β = 0
+def beta_is_solution (system : linearSystem α k n) (β : Vector α (n - 1)) : Prop :=
+  ∀ (i : Fin (n - 1)), eval_poly system[i]! β = 0 -- Why are we forcing a default here with [i]!?
+                                                  -- ANyway, I get the inhabited instance above, but won't be necessary
+                                                  -- once you define a linear equation to be an abbrev that's a k-wide Vector
 
+-- etc.
 theorem row_opr_preserves_sol {k n : {x : ℕ // x > 1}} {α : Type} [Field α] [Inhabited α] [Inhabited (linear_equation n α)]
     (system : linear_system k n α) (β : Vector α (n - 1))
     (coef : α) (i j : ℕ) (h₁ : i < k) (h₂ : j < k) :
