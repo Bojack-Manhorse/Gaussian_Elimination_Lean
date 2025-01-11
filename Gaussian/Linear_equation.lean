@@ -115,12 +115,12 @@ lemma neg_add_cancel_lin_eqn {len : ℕ} {α : Type} [CommRing α] [Inhabited α
     rw [add_size_second_argument, p.length] at h₁
     assumption
 
-def eval_poly {α : Type} [CommRing α] [Inhabited α] {len : ℕ} (poly : linear_equation len α) (pts : Vector α (len - 1)) : α :=
-  (∑ i < len - 1, pts[i]! * poly.coefficients[i]!) + poly.coefficients[len - 1]!
+def eval_poly {α : Type} [CommRing α] [Inhabited α] {len : {x : ℕ // x > 1}} (poly : linear_equation len α) (pts : Vector α (len - 1)) : α :=
+  (∑ i : Fin (len - 1), pts[i]'(i.2) * poly.coefficients[i]'(by rw [poly.length]; refine Nat.le_trans i.2 (Nat.sub_le len 1) )) + poly.coefficients[↑len - 1]'(by rw [poly.length]; simp; exact Nat.lt_trans Nat.zero_lt_one len.2)
 
 @[simp]
 lemma eval_poly_defn {α : Type} [CommRing α] [Inhabited α] {len : {x : ℕ // x > 1}} (poly : linear_equation len α) (pts : Vector α (len - 1))
-    : eval_poly poly pts = (∑ i < ↑len - 1, pts[i]! * poly.coefficients[i]!) + poly.coefficients[↑len - 1]! := by rfl
+    : eval_poly poly pts = (∑ i : Fin (len - 1), pts[i]'(i.2) * poly.coefficients[i]'(by rw [poly.length]; exact Nat.le_trans i.2 (Nat.sub_le len 1) )) + poly.coefficients[↑len - 1]'(by rw [poly.length]; simp; exact Nat.lt_trans Nat.zero_lt_one len.2) := by rfl
 
 /- We need to show that the set of linear equations is a module over the coefficient ring -/
 
