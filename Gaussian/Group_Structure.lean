@@ -4,7 +4,9 @@ namespace GroupStructure
 
 open LinearEquation
 
-instance (len : ℕ) (α : Type) [Field α] [Inhabited α] : AddCommMonoid (linear_equation len α) where
+variable {α : Type} [Field α] [Inhabited α] {len n : {x : ℕ // x > 1}}
+
+instance : AddCommMonoid (linear_equation len α) where
   add p q := p + q
   zero := 0
   --neg p := -p
@@ -47,40 +49,31 @@ instance {len : ℕ} {α : Type} [Field α] [Inhabited α] : SMul α (linear_equ
 @[simp]
 lemma defn_of_smul {len : ℕ} {α : Type} [Field α] [Inhabited α] (m : α) (p : linear_equation len α) : (m • p).coefficients = Array.map (fun x => m * x) p.coefficients := by rfl
 
-lemma add_smul_lin_eqn {len : ℕ} {α : Type} [Field α] [Inhabited α] (r s : α) (p : (linear_equation len α)) : (r + s) • p = r • p + s • p := by
+lemma add_smul_lin_eqn (r s : α) (p : (linear_equation len α)) : (r + s) • p = r • p + s • p := by
   apply linear_equation.ext
   apply Array.ext
   . simp
   . intro i h₁ h₂
     rw [((r + s) • p).length] at h₁
     simp
-    rw [zip_index_pick_fst h₁, zip_index_pick_snd h₁]
+    rw [zip_index_pick_fst _ _ (by rw [Array.size_map, p.length]) (by rw [Array.size_map, p.length]) i h₁, zip_index_pick_snd _ _ (by rw [Array.size_map, add_size, (r • p).length, p.length]) (by rw [Array.size_map, add_size, (r • p).length, p.length]) i h₂]
     simp
     ring
-    rw [Array.size_map, p.length]
-    rw [Array.size_map, p.length]
-    rw [Array.size_map, p.length]
-    rw [Array.size_map, p.length]
 
-lemma smul_add_lin_eqn {len : ℕ} {α : Type} [Field α] [Inhabited α] (r : α) (p q : (linear_equation len α)) : r • (p + q) = r • p + r • q := by
+
+lemma smul_add_lin_eqn (r : α) (p q : (linear_equation len α)) : r • (p + q) = r • p + r • q := by
   apply linear_equation.ext
   apply Array.ext
   . simp
   . intro i h₁ h₂
+    have h : i < ↑len := by rw [(r • (p + q)).length] at h₁; exact h₁
     simp
-    repeat rw [zip_index_pick_fst h₁, zip_index_pick_snd h₁]
+    rw [zip_index_pick_fst p.coefficients _ p.length q.length i h, zip_index_pick_snd _ q.coefficients p.length q.length i h]
+    rw [zip_index_pick_fst _ _ (by rw [Array.size_map, p.length]) (by rw [Array.size_map, q.length]) i h, zip_index_pick_snd _ _ (by rw [Array.size_map, p.length]) (by rw [Array.size_map, q.length]) i h]
     simp
     ring
-    rw [Array.size_map, linear_equation.length, linear_equation.length]
-    rw [Array.size_map, linear_equation.length, linear_equation.length]
-    rw [Array.size_map, linear_equation.length, linear_equation.length]
-    rw [Array.size_map, linear_equation.length, linear_equation.length]
-    rw [linear_equation.length, linear_equation.length]
-    rw [linear_equation.length, linear_equation.length]
-    rw [linear_equation.length, linear_equation.length]
-    rw [linear_equation.length, linear_equation.length]
 
-instance (len : ℕ) (α : Type) [Field α] [Inhabited α] : Module α (linear_equation len α) where
+instance : Module α (linear_equation len α) where
   smul m p := m • p
 
   one_smul p := by
