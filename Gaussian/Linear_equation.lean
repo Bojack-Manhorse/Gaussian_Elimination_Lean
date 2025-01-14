@@ -3,12 +3,15 @@ import ZKLib.Data.UniPoly
 
 namespace LinearEquation
 
+abbrev linearEquation (α : Type) [Field α] [Inhabited α] (num_vars : ℕ) :=
+  Vector α num_vars
+
 @[ext]
 structure linear_equation (len : ℕ) (α : Type) [Field α] [Inhabited α] where
   coefficients : Array α
   length : coefficients.size = len
 
-variable {α : Type} [Field α] [Inhabited α] {len n : {x : ℕ // x > 1}}
+variable {α : Type} [Field α] [Inhabited α] {len : {x : ℕ // x > 1}}
 
 /- A lemma which hopefully will be VERY useful: -/
 lemma zip_index_swap {β : Type} {n : ℕ} {p q : Array β} {h₁ : p.size = n} {h₂ : q.size = n} {i : ℕ} (h : i < n) :
@@ -19,110 +22,119 @@ lemma zip_index_swap {β : Type} {n : ℕ} {p q : Array β} {h₁ : p.size = n} 
     rcases q with ⟨⟨_ | _⟩, h₂⟩ <;> try (simp at h₁ h₂; omega)
     aesop
 
-lemma add_zip_array_size (p q : linear_equation len α): (Array.map (fun x => x.1 + x.2) (Array.zip p.coefficients q.coefficients)).size = len := by
-  rw [Array.size_map, Array.size_zip, p.length, q.length]
-  simp
+lemma add_zip_array_size (p q : linearEquation α len): (Array.map (fun x => x.1 + x.2) (p.zip q.toArray)).size = len := by
+  rw [Array.size_map, Array.size_zip, Vector.size_toArray, Vector.size_toArray, min_self]
 
 /- Here's the addition operation on `linear_equation`: -/
-instance : Add (linear_equation len α) where
-  add p q := ⟨Array.map (fun x => x.1 + x.2) (Array.zip p.coefficients q.coefficients), by apply add_zip_array_size⟩
+instance : Add (linearEquation α len) where
+  add p q := ⟨Array.map (fun x => x.1 + x.2) (p.zip q.toArray), by apply add_zip_array_size⟩
 
 @[simp]
-lemma defn_of_add_with_index (p q : linear_equation len α) (i : ℕ) (h : i < len) : (p + q).coefficients[i]'(by rw [(p + q).length]; assumption ) = (Array.map (fun x => x.1 + x.2) (Array.zip p.coefficients q.coefficients))[i]'(by rw [add_zip_array_size]; assumption) := by
+lemma defn_of_add_with_index (p q : linearEquation α len) (i : ℕ) (h : i < len) : (p + q)[i]'(h) = (Array.map (fun x => x.1 + x.2) (p.zip q.toArray))[i]'(by rw [add_zip_array_size]; assumption) := by
   rfl
 
 @[simp]
-lemma defn_of_add_no_index (p q : linear_equation len α) : (p + q).coefficients = Array.map (fun x => x.1 + x.2) (Array.zip p.coefficients q.coefficients) := by
+lemma defn_of_add_no_index (p q : linearEquation α len) : (p + q).toArray = Array.map (fun x => x.1 + x.2) (p.zip q.toArray) := by
   rfl
+
+@[simp]
+lemma vector_to_array_element {β : Type} {num : ℕ} (p : Vector β num) (i : ℕ) (h : i < num)
+    : p.toArray[i]'(by rw [Vector.size_toArray]; exact h) = p[i]'(h) := by rfl
 
 /- Show that we can swap `+` and `[i]` using `zip_index_swap`: -/
 
-lemma index_is_linear (p q : linear_equation len α) (i : ℕ) (h : i < len) :
-  (p + q).coefficients[i]'(by rw [(p + q).length]; assumption ) = p.coefficients[i]'(by rw [p.length]; assumption ) + q.coefficients[i]'(by rw [q.length]; assumption ) := by
+lemma index_is_linear (p q : linearEquation α len) (i : ℕ) (h : i < len)
+    : (p + q)[i]'(h) = p[i]'(h) + q[i]'(h) := by
   simp
   rw [zip_index_swap h]
-  . exact p.length
-  . exact q.length
+  simp
+  rw [vector_to_array_element, vector_to_array_element]
+  . exact p.size_toArray
+  . exact q.size_toArray
 
-/- Since we'll need to show that adding two elements of `linear_equation len α` gives an array of length `len`: -/
-
-@[simp]
-lemma add_size (p q : linear_equation len α) : (p + q).coefficients.size = p.coefficients.size := by
-  rw [defn_of_add_no_index, add_zip_array_size, p.length]
+/- Since we'll need to show that adding two elements of `linearEquation α len` gives an array of length `len`: -/
 
 @[simp]
-lemma add_size_second_argument (p q : linear_equation len α) : (p + q).coefficients.size = q.coefficients.size := by
-  rw [defn_of_add_no_index, add_zip_array_size, q.length]
+lemma add_size (p q : linearEquation α len) : (p + q).size = p.size := by
+  rw [defn_of_add_no_index, add_zip_array_size, p.size_toArray]
+
+@[simp]
+lemma add_size_second_argument (p q : linearEquation α len) : (p + q).size = q.size := by
+  rw [defn_of_add_no_index, add_zip_array_size, q.size_toArray]
 
 /- Show add is commutative: -/
 
-theorem add_comm_lin_eqn (p q : linear_equation len α) : p + q = q + p := by
-  apply linear_equation.ext
+/- Why does this not already exist? -/
+lemma vector_ext_with_arrays {γ : Type} {number : ℕ} (p q : Vector γ number) (h : p.toArray = q.toArray) : p = q := by
+  rcases p with ⟨parr, psize⟩
+  rcases q with ⟨qarr, qsize⟩
+  simp at *
+  exact h
+
+/- Why does this not already exist? -/
+lemma vector_ext {γ : Type} {number : ℕ} (p q : Vector γ number) (h : ∀ x : Fin number, p[x.1] = q[x.1]) : p = q := by
+  rcases p with ⟨parr, psize⟩
+  rcases q with ⟨qarr, qsize⟩
+  simp
   apply Array.ext
-  . rw [defn_of_add_no_index, defn_of_add_no_index, add_zip_array_size, add_zip_array_size]
-  . intro i h₁ h₂
-    rw [index_is_linear, index_is_linear, add_comm]
-    . rw [add_size, p.length] at h₁; assumption
-    . rw [add_size, q.length] at h₂; assumption
+  simp [qsize, psize]
+  intro i h1 h2
+  exact h ⟨i, by rw [psize] at h1; exact h1⟩
+
+theorem add_comm_lin_eqn (p q : linearEquation α len) : p + q = q + p := by
+  apply vector_ext
+  intro x
+  rw [index_is_linear, index_is_linear, add_comm]
 
 /- Show add is associative: -/
 
-theorem add_assoc_lin_eqn (p q r : linear_equation len α) : p + q + r = p + (q + r) := by
-  apply linear_equation.ext
-  apply Array.ext
-  . rw [(p + q + r).length, (p + (q + r)).length]
-  . intro i h₁ h₂
-    have h₃ : i < len := by
-      rw [add_size, add_size, p.length] at h₁
-      exact h₁
-    rw [index_is_linear, index_is_linear, index_is_linear, index_is_linear, add_assoc] <;> exact h₃
-
+theorem add_assoc_lin_eqn (p q r : linearEquation α len) : p + q + r = p + (q + r) := by
+  apply vector_ext
+  intro x
+  rw [index_is_linear, index_is_linear, index_is_linear, index_is_linear, add_assoc]
 /- Define the zero element: -/
 
-instance : Zero (linear_equation len α) where
+instance : Zero (linearEquation α len) where
   zero := ⟨Array.mkArray len 0, Array.size_mkArray len 0⟩
 
 @[simp]
-lemma defn_of_zero : (0 : (linear_equation len α)).coefficients = Array.mkArray len 0 := by rfl
+lemma defn_of_zero : (0 : (linearEquation α len)).toArray = Array.mkArray len 0 := by rfl
 
 /- Prove stuff about the zero element -/
 
-lemma zero_add_lin_eqn (p : linear_equation len α) : 0 + p = p := by
-  apply linear_equation.ext
-  apply Array.ext
-  . rw [add_size_second_argument]
-  . intro i h₁ h₂
-    rw [index_is_linear]
-    simp
-    rw [p.length] at h₂
-    assumption
+lemma zero_add_lin_eqn (p : linearEquation α len) : 0 + p = p := by
+  apply vector_ext
+  intro x
+  rw [index_is_linear, ← vector_to_array_element]
+  simp
 
 /- Define negation -/
 
-instance : Neg (linear_equation len α) where
-  neg p := ⟨Array.map (fun x => -x) p.coefficients, by rw [Array.size_map, p.length]⟩
+instance : Neg (linearEquation α len) where
+  neg p := ⟨Array.map (fun x => -x) p.toArray, by rw [Array.size_map, p.size_toArray]⟩
 
 @[simp]
-lemma defn_of_neg (p : linear_equation len α) : (-p).coefficients = Array.map (fun x => -x) p.coefficients := by rfl
+lemma defn_of_neg (p : linearEquation α len) : (-p).toArray = Array.map (fun x => -x) p.toArray := by rfl
 
 /- Prove stuff about negation: -/
 
-lemma neg_add_cancel_lin_eqn (p : linear_equation len α) : -p + p = 0 := by
-  apply linear_equation.ext
-  apply Array.ext
-  . simp [add_size_second_argument, p.length]
-  . intro i h₁ h₂
-    rw [index_is_linear]
-    simp
-    rw [add_size_second_argument, p.length] at h₁
-    assumption
+lemma neg_add_cancel_lin_eqn (p : linearEquation α len) : -p + p = 0 := by
+  apply vector_ext
+  intro x
+  rw [index_is_linear, ← vector_to_array_element, ← vector_to_array_element, ← vector_to_array_element]
+  simp
 
-def eval_poly (poly : linear_equation len α) (pts : Vector α (len - 1)) : α :=
-  (∑ i : Fin (len - 1), pts[i]'(i.2) * poly.coefficients[i]'(by rw [poly.length]; refine Nat.le_trans i.2 (Nat.sub_le len 1) )) + poly.coefficients[↑len - 1]'(by rw [poly.length]; simp; exact Nat.lt_trans Nat.zero_lt_one len.2)
+lemma fin_less_than (m : {x : ℕ // x > 1}) : ∀ x : Fin (m - 1), ↑x < m.1 := by
+  omega
+
+def eval_poly (poly : linearEquation α len) (pts : Vector α (len - 1)) : α :=
+  (∑ i : Fin (len - 1), pts[i]'(i.2) * poly[i]'(by omega) + poly[↑len - 1]'(by omega))
 
 @[simp]
-lemma eval_poly_defn (poly : linear_equation len α) (pts : Vector α (len - 1))
-    : eval_poly poly pts = (∑ i : Fin (len - 1), pts[i]'(i.2) * poly.coefficients[i]'(by rw [poly.length]; exact Nat.le_trans i.2 (Nat.sub_le len 1) )) + poly.coefficients[↑len - 1]'(by rw [poly.length]; simp; exact Nat.lt_trans Nat.zero_lt_one len.2) := by rfl
+lemma eval_poly_defn (poly : linearEquation α len) (pts : Vector α (len - 1))
+    : eval_poly poly pts = (∑ i : Fin (len - 1), pts[i]'(i.2) * poly[i]'(by omega) + poly[↑len - 1]'(by omega)) := by rfl
+
+     /-eval_poly poly pts = (∑ i : Fin (len - 1), pts[i]'(i.2) * poly[i]'(fin_less_than len i)) + poly[↑len - 1]'(by omega) := by rfl-/
 
 /- We need to show that the set of linear equations is a module over the coefficient ring -/
 

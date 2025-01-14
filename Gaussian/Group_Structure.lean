@@ -6,7 +6,7 @@ open LinearEquation
 
 variable {α : Type} [Field α] [Inhabited α] {len n : {x : ℕ // x > 1}}
 
-instance : AddCommMonoid (linear_equation len α) where
+instance : AddCommMonoid (linearEquation α len) where
   add p q := p + q
   zero := 0
   --neg p := -p
@@ -18,66 +18,57 @@ instance : AddCommMonoid (linear_equation len α) where
     intro a
     rw [add_comm_lin_eqn a 0]
     exact zero_add_lin_eqn a
-  nsmul n p := ⟨Array.map (fun x => n * x) p.coefficients, by rw [Array.size_map, p.length]; ⟩
+  nsmul n p := ⟨Array.map (fun x => n * x) p.toArray, by rw [Array.size_map, Vector.size_toArray] ⟩
   --zsmul z p := ⟨Array.map (fun x => z * x ) p.coefficients, by rw[ Array.size_map, p.length]⟩
   nsmul_zero := by
     intro x
-    apply linear_equation.ext
-    apply Array.ext
-    . rw [Array.size_map, linear_equation.length, linear_equation.length]
-    . intros
-      simp
+    apply vector_ext
+    intro i
+    simp [← vector_to_array_element]
+
   nsmul_succ := by
     intro n x
-    apply linear_equation.ext
-    apply Array.ext
-    . rw [Array.size_map, linear_equation.length, linear_equation.length]
-    . intro i h₁ h₂
-      simp [x.length] at h₁
-      simp
-      rw [zip_index_swap h₁]
-      simp
-      ring
-      rw [Array.size_map, x.length]
-      rw [x.length]
+    apply vector_ext
+    intros
+    simp [← vector_to_array_element, zip_index_swap]
+    ring
 
 /- To show it's a module: -/
 
-instance {len : ℕ} {α : Type} [Field α] [Inhabited α] : SMul α (linear_equation len α) where
-  smul m p := ⟨Array.map (fun x => m * x) p.coefficients, by rw [Array.size_map, p.length]⟩
+instance {len : ℕ} {α : Type} [Field α] [Inhabited α] : SMul α (linearEquation α len) where
+  smul m p := ⟨Array.map (fun x => m * x) p.toArray, by rw [Array.size_map, Vector.size_toArray]⟩
 
 @[simp]
-lemma defn_of_smul {len : ℕ} {α : Type} [Field α] [Inhabited α] (m : α) (p : linear_equation len α) : (m • p).coefficients = Array.map (fun x => m * x) p.coefficients := by rfl
+lemma defn_of_smul {len : ℕ} {α : Type} [Field α] [Inhabited α] (m : α) (p : linearEquation α len) : (m • p).toArray = Array.map (fun x => m * x) p.toArray := by rfl
 
-lemma add_smul_lin_eqn (r s : α) (p : (linear_equation len α)) : (r + s) • p = r • p + s • p := by
-  apply linear_equation.ext
-  apply Array.ext
-  . simp
-  . intro i h₁ h₂
-    rw [((r + s) • p).length] at h₁
-    simp
-    rw [zip_index_pick_fst _ _ (by rw [Array.size_map, p.length]) (by rw [Array.size_map, p.length]) i h₁, zip_index_pick_snd _ _ (by rw [Array.size_map, add_size, (r • p).length, p.length]) (by rw [Array.size_map, add_size, (r • p).length, p.length]) i h₂]
-    simp
-    ring
+lemma add_smul_lin_eqn (r s : α) (p : (linearEquation α len)) : (r + s) • p = r • p + s • p := by
+  apply vector_ext
+  intro x
+  simp only [defn_of_smul, defn_of_add_with_index, defn_of_smul, Array.getElem_map]
+  rw [← vector_to_array_element]
+  simp only [defn_of_smul]
+  rw [zip_index_pick_fst _ _ (by simp) (by simp) x.1 x.2, zip_index_pick_snd _ _ (by simp) (by simp) x.1 x.2]
+  simp
+  ring
 
+lemma smul_add_lin_eqn (r : α) (p q : (linearEquation α len)) : r • (p + q) = r • p + r • q := by
+  apply vector_ext
+  intro x
+  simp only [defn_of_add_with_index, defn_of_smul, Array.getElem_map]
+  rw [← vector_to_array_element]
+  simp only [defn_of_smul]
+  rw [zip_index_pick_fst _ _ (by simp) (by simp) x.1 x.2, zip_index_pick_snd _ _ (by simp) (by simp) x.1 x.2]
+  simp only [defn_of_add_no_index, Array.map_map, Array.getElem_map, Function.comp_apply, Fin.is_lt,
+    vector_to_array_element]
+  rw [zip_index_pick_fst p.toArray q.toArray (by simp) (by simp) x.1 x.2, zip_index_pick_snd p.toArray q.toArray (by simp) (by simp) x.1 x.2]
+  simp
+  ring
 
-lemma smul_add_lin_eqn (r : α) (p q : (linear_equation len α)) : r • (p + q) = r • p + r • q := by
-  apply linear_equation.ext
-  apply Array.ext
-  . simp
-  . intro i h₁ h₂
-    have h : i < ↑len := by rw [(r • (p + q)).length] at h₁; exact h₁
-    simp
-    rw [zip_index_pick_fst p.coefficients _ p.length q.length i h, zip_index_pick_snd _ q.coefficients p.length q.length i h]
-    rw [zip_index_pick_fst _ _ (by rw [Array.size_map, p.length]) (by rw [Array.size_map, q.length]) i h, zip_index_pick_snd _ _ (by rw [Array.size_map, p.length]) (by rw [Array.size_map, q.length]) i h]
-    simp
-    ring
-
-instance : Module α (linear_equation len α) where
+instance : Module α (linearEquation α len) where
   smul m p := m • p
 
   one_smul p := by
-    apply linear_equation.ext
+    apply vector_ext_with_arrays
     apply Array.ext
     . simp
     . intros
@@ -86,15 +77,15 @@ instance : Module α (linear_equation len α) where
   add_smul := add_smul_lin_eqn
 
   zero_smul p := by
-    apply linear_equation.ext
-    apply Array.ext <;> simp [p.length]
+    apply vector_ext_with_arrays
+    apply Array.ext <;> simp [Vector.size_toArray]
 
   mul_smul r s p := by
-    apply linear_equation.ext
+    apply vector_ext_with_arrays
     apply Array.ext <;> simp
 
   smul_zero m := by
-    apply linear_equation.ext
+    apply vector_ext_with_arrays
     apply Array.ext <;> simp
 
   smul_add := smul_add_lin_eqn
