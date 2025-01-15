@@ -3,15 +3,18 @@ import ZKLib.Data.UniPoly
 
 namespace LinearEquation
 
+
+/-@[ext]
+structure linear_equation (len : ℕ) (α : Type) [Field α] [Inhabited α] where
+  coefficients : Array α
+  length : coefficients.size = len-/
+
+variable {α : Type} [Field α] [Inhabited α] {len : {x : ℕ // x > 1}}
+
 abbrev linearEquation (α : Type) [Field α] [Inhabited α] (num_vars : ℕ) :=
   Vector α num_vars
 
-@[ext]
-structure linear_equation (len : ℕ) (α : Type) [Field α] [Inhabited α] where
-  coefficients : Array α
-  length : coefficients.size = len
-
-variable {α : Type} [Field α] [Inhabited α] {len : {x : ℕ // x > 1}}
+  -- #[1,2,3] := x + 2y + 3 = 0
 
 /- A lemma which hopefully will be VERY useful: -/
 lemma zip_index_swap {β : Type} {n : ℕ} {p q : Array β} {h₁ : p.size = n} {h₂ : q.size = n} {i : ℕ} (h : i < n) :
