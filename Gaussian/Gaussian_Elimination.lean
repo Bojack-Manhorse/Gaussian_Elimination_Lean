@@ -72,7 +72,8 @@ structure system_non_zero_i_pair (i : ℕ) (h₀ : i < n) where
     system : linearSystem α k n
     non_zero_i : (system[i]'(Nat.lt_trans h₀ kgtn))[i]'(h₀) ≠ 0
 
-def zero_entry_pair (i j : ℕ) (h₀ : i < n) (h₁ : j < k) (h₂ : i ≠ j) (system_pair : system_non_zero_i_pair kgtn i h₀) : (system_non_zero_i_pair kgtn i h₀) :=
+def zero_entry_pair (i j : ℕ) (h₀ : i < n) (h₁ : j < k) (h₂ : i ≠ j)
+                    (system_pair : system_non_zero_i_pair (α := α) kgtn i h₀) : (system_non_zero_i_pair (α := α) kgtn i h₀) :=
     sorry
 
 
