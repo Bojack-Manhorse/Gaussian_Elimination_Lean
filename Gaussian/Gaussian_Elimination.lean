@@ -52,29 +52,55 @@ Have a representation thats of the form Fin num_rows → Fun num_columns → α
 
 -/
 
-variable {α : Type} [Field α] [Inhabited α] {k n : {x : ℕ // x > 1}} (kgeqn : k > n)
+variable {α : Type} [Field α] [Inhabited α] {k n : {x : ℕ // x > 1}} (kgtn : k > n)
+
 
 /- Assuming `system[i][i] ≠ 0` makes `system[j][i] = 0`: -/
-def zero_entry (system : linearSystem α k n) (i j : ℕ) (h₀ : i < n) (h₁ : j < k) (h₂ : i ≠ j) (h₃ : (system[i]'(Nat.lt_trans h₀ kgeqn))[i]'(h₀) ≠ 0) : linearSystem α k n := by
-    let coef := -((system[j]'(h₁))[i]'(h₀) / (system[i]'(Nat.lt_trans h₀ kgeqn))[i])
-    exact add_row system coef i j (Nat.lt_trans h₀ kgeqn) h₁
+def zero_entry (system : linearSystem α k n) (i j : ℕ) (h₀ : i < n) (h₁ : j < k) : linearSystem α k n := by
+    let coef := -((system[j]'(h₁))[i]'(h₀) / (system[i]'(Nat.lt_trans h₀ kgtn))[i])
+    exact add_row system coef i j (Nat.lt_trans h₀ kgtn) h₁
 
 
-lemma zero_entry_after_zero_entry (system : linearSystem α k n) (i j : ℕ) (h₀ : i < n) (h₁ : j < k) (h₂ : i ≠ j) (h₃ : (system[i]'(Nat.lt_trans h₀ kgeqn))[i]'(h₀) ≠ 0) : ((zero_entry kgeqn system i j h₀ h₁ h₂ h₃)[j]'(h₁))[i]'(h₀) = 0 := by
+lemma zero_entry_after_zero_entry (system : linearSystem α k n) (i j : ℕ) (h₀ : i < n) (h₁ : j < k) (h₃ : (system[i]'(Nat.lt_trans h₀ kgtn))[i]'(h₀) ≠ 0) : ((zero_entry kgtn system i j h₀ h₁)[j]'(h₁))[i]'(h₀) = 0 := by
     simp [zero_entry]
     rw [zip_index_pick_fst _ _ (by simp) (by simp) i (h₀), zip_index_pick_snd _ _ (by simp) (by simp) i (h₀)]
     simp only [Array.getElem_map]
     rw [vector_to_array_element _ _ h₀, vector_to_array_element _ _ h₀]
     field_simp
 
-/- Maybe make output a dependent pair `⟨system', proof system' has same solution as system⟩`-/
-def pivot_system (system : linearSystem α k n) (i : ℕ) (h₁ : i < n) (h₃ : (system[i]'(Nat.lt_trans h₁ kgeqn))[i]'(h₁) ≠ 0) : (linearSystem α k n) := by
-    let map_array : Fin k → _ := (fun x => (fun system' : (linearSystem α k n) =>
-        zero_entry kgeqn system' i x h₁ (x.2.1) x.2.2 ))
-    exact Fin.foldr k map_array system
+structure system_non_zero_i_pair (i : ℕ) (h₀ : i < n) where
+    system : linearSystem α k n
+    non_zero_i : (system[i]'(Nat.lt_trans h₀ kgtn))[i]'(h₀) ≠ 0
+
+instance (i : ℕ) (h₀ : i < n) : Inhabited (system_non_zero_i_pair kgtn i h₀) where
     sorry
 
-def row_reduce_system (system : linearSystem α k n) : linearSystem α k n := sorry
 
+def zero_entry_pair (i j : ℕ) (h₀ : i < n) (h₁ : j < k) (h₂ : i ≠ j) (system_pair : system_non_zero_i_pair i h₀) : (system_non_zero_i_pair i h₀ h₀') :=
+    sorry
+
+
+def pivot_system_above (system : linearSystem α k n) (i : ℕ) (h₁ : i < n) : (linearSystem α k n) := by
+    have h₉ : i < k := Nat.lt_trans h₁ kgtn
+    exact Fin.foldr i (fun (x : Fin i) (system' : (linearSystem α k n)) => zero_entry kgtn system' i x h₁ (Nat.lt_trans x.2 h₉) ) system
+
+def pivot_system_below (system : linearSystem α k n) (i : ℕ) (h₁ : i < n) : (linearSystem α k n) := by
+    have h₉ : i < k := Nat.lt_trans h₁ kgtn
+    have h₈ (x : Fin (k - i - 1)) : x.1 + ↑i + 1 < ↑k := by
+        rw [add_assoc]
+        apply Nat.add_lt_of_lt_sub
+        exact x.isLt
+    exact Fin.foldr (k - i - 1) (fun (x : Fin (k - i - 1)) (system' : (linearSystem α k n)) => zero_entry kgtn system' i (x + i + 1) h₁ (h₈ x) ) system
+
+def ensure_non_zero_at_i (system : linearSystem α k n) (i : ℕ) (h₁ : i < n) : linearSystem α k n :=
+    let i_th_column_array := Array.map (fun lin_eqn => lin_eqn[i]'(h₁)) system.toArray
+    let non_zero := Array.filter (fun x => ) i_th_column_array
+    sorry
+
+
+/- Maybe make output a dependent pair `⟨system', proof system' has same solution as system⟩`-/
+def pivot_system (system : linearSystem α k n) (i : ℕ) (h₁ : i < n) : (linearSystem α k n) := pivot_system_above kgtn (pivot_system_below kgtn system i h₁) i h₁
+
+def row_reduce_system (system : linearSystem α k n) : linearSystem α k n := Fin.foldr n (fun (column : Fin n) (system' : (linearSystem α k n)) => pivot_system kgtn system' column.1 column.2) system
 
 end Gaussian
