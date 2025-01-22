@@ -83,24 +83,8 @@ structure system_non_zero_i_pair (i : ℕ) (h₀ : i < n) where
     system : linearSystem α k n
     non_zero_i : (system[i]'(Nat.lt_trans h₀ kgtn))[i]'(h₀) ≠ 0
 
-/- Applies `zero_entry` to system_pair using `i_th_index_stays_non_zero`-/
-def zero_entry_pair (i j : ℕ) (h₀ : i < n) (h₁ : j < k) (h₂ : i ≠ j)
-        (system_pair : system_non_zero_i_pair (α := α) kgtn i h₀) : (system_non_zero_i_pair (α := α) kgtn i h₀) :=
-    ⟨zero_entry kgtn system_pair.system i j h₀ h₁, i_th_index_stays_non_zero kgtn system_pair.system i j h₀ h₁ h₂ system_pair.non_zero_i⟩
-
-/- The function we fold over in `pivot_system_above`: -/
-def fold_func_i (i : ℕ) (h₁ : i < n) := fun (system : (linearSystem α k n)) (x : Fin i) => zero_entry kgtn system i x h₁ (Nat.lt_trans x.2 (Nat.lt_trans h₁ kgtn))
-
-def pivot_system_above (system : linearSystem α k n) (i : ℕ) (h₁ : i < n) : (linearSystem α k n) :=
-    Fin.foldl i (fold_func_i kgtn i h₁) system
-
-lemma fold_l_swap' {β : Type} (n : ℕ) (f : β → ℕ → β) (b : β) : Fin.foldl (n + 1) (fun x y => f x y) b = f (Fin.foldl n (fun x y => f x y ) b) n := by
-    induction' n with i ih
-    .   rfl
-    .   rw [Fin.foldl, Fin.foldl.loop]
-        simp
-        rw [ih]
-        sorry
+def zero_entry_pair (i j : ℕ) (h₀ : i < n) (h₁ : j < k) (h₂ : i ≠ j) (system_pair : system_non_zero_i_pair kgtn i h₀) : (system_non_zero_i_pair kgtn i h₀) :=
+    sorry
 
 
 lemma zero_above_pivot_system_above (system : linearSystem α k n) (i : ℕ) (h₁ : i < n) : (system[i]'(Nat.lt_trans h₁ kgtn))[i] ≠ 0 → ∀ eqn : Fin i, ((pivot_system_above kgtn system i h₁)[eqn]'(Nat.lt_trans (Nat.lt_trans eqn.2 h₁) kgtn))[i]'(h₁) = 0 := by
