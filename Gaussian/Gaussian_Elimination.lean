@@ -207,8 +207,17 @@ def get_solution (system : linearSystem α k n) (h : system_in_ref kgtn system) 
     have : last_row ≠ 0 := sorry
     sorry
 
-def get_unique_solution (system : linearSystem α k n) (h : system_has_unique_solution system)
+def get_unique_solution (system : linearSystem α k n) (h : system_in_reduced_ref kgtn system)
         : Vector α (n - 1) :=
+    have h₁ : ((n.1 - 1) ⊓ ↑k - 0) = ↑n - 1 := by
+        apply min_eq_left_of_lt
+        refine Nat.lt_trans ?_ kgtn
+        omega
+    let first_n_minus_one_row := system.extract 0 (n - 1)
+
+    let first_n_minus_one_row_casted : Vector _ (n - 1):=
+        ⟨first_n_minus_one_row.toArray, by rw [Vector.size_toArray]; exact h₁ ⟩
+    first_n_minus_one_row_casted.map (fun x : linearEquation α n => x[n.1 - 1]'(by omega))
 
 
 

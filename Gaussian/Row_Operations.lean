@@ -1,4 +1,5 @@
 import Gaussian.Group_Structure
+import Mathlib.Tactic.FieldSimp
 
 namespace RowOperations
 
@@ -62,6 +63,13 @@ def swap_row (system : linearSystem α k n) (i j : ℕ) (h₁ : i < k) (h₂ : j
 lemma swap_row_defn (system : linearSystem α k n) (i j : ℕ) (h₁ : i < k) (h₂ : j < k)
     : (swap_row system i j h₁ h₂) = Vector.swap (system) i j := by rfl
 
+def smul_row (system : linearSystem α k n) (i : ℕ) (h₁ : i < k) (coef : α) (h₂ : coef ≠ 0)
+    : linearSystem α k n :=
+  system.set i (coef • system[i])
+
+@[simp]
+lemma smul_row_defn (system : linearSystem α k n) (i : ℕ) (h₁ : i < k) (coef : α) (h₂ : coef ≠ 0)
+    : (smul_row system i h₁ coef h₂) = system.set i (coef • system[i]) := by rfl
 
 /- Function to check if some `β : Vector α (n-1)` is a solution to a system of equations: -/
 def beta_is_solution (system : linearSystem α k n) (β : Vector α (n - 1)) : Prop :=
@@ -238,5 +246,93 @@ theorem swap_opr_preserves_sol_iff (system : linearSystem α k n) (β : Vector �
   . apply swap_opr_preserves_sol
   . nth_rewrite 2 [← double_swap system i j h₁ h₂]
     apply swap_opr_preserves_sol
+
+lemma vector_set_diff_index {β : Type} {m : ℕ} (p : Vector β m) (b : β) (i : ℕ) (h₀ : i < m) (index : ℕ) (h₁ : index < m) (h₂ : index ≠ i)
+    : (p.set i b)[index] = p[index] := by
+  have swap : (p.set i b h₀).toArray = p.toArray.set i b (by rw [p.size_toArray]; exact h₀ ) := by rfl
+  rw [← vector_to_array_element, ← vector_to_array_element]
+  simp only [swap]
+  rw [Array.getElem_set]
+  simp [h₂]
+  intro indeqi
+  apply absurd indeqi (id (Ne.symm h₂))
+
+lemma vector_set_same_index' {β : Type} {m : ℕ} (p : Vector β m) (b : β) (i : ℕ) (h₀ : i < m) : (p.set i b)[i] = b := by
+  rw [← vector_to_array_element]
+  have swap : (p.set i b h₀).toArray = p.toArray.set i b (by rw [p.size_toArray]; exact h₀ ) := by rfl
+  simp only [swap]
+  rw [Array.getElem_set]
+  simp
+
+lemma vector_set_same_index {β : Type} {m : ℕ} (p : Vector β m) (b : β) (i : ℕ) (h₀ : i < m) (index : ℕ) (h₁ : index = i)
+    : (p.set i b)[index] = b := by
+  rw [← vector_to_array_element]
+  have swap : (p.set i b h₀).toArray = p.toArray.set i b (by rw [p.size_toArray]; exact h₀ ) := by rfl
+  simp only [swap]
+  rw [Array.getElem_set]
+  simp [h₁]
+
+lemma smul_lin_eqn (eqn : linearEquation α n) (coef : α) (x : ℕ) (h : x < n)
+    : (coef • eqn)[x] = coef * eqn[x] := by
+  exact swap_scalar_pt eqn coef x h
+
+lemma eval_smul (eqn : linearEquation α n) (coef : α) (β : Vector α (n - 1))
+    : eval_poly (coef • eqn) β = coef * eval_poly eqn β := by
+  simp [smul_lin_eqn]
+  have feqg : ∀ x : Fin (↑n - 1),
+    β[x.1] * (coef * eqn[x.1]'(by omega)) = coef * (β[x.1] * eqn[x.1]'(by omega)) := by
+    intro x
+    ring
+  rw [Fintype.sum_congr _ _ feqg, ← Finset.mul_sum]
+  ring
+
+theorem smul_opr_preserves_sol (system : linearSystem α k n) (β : Vector α (n - 1)) (i : ℕ) (h₁ : i < k) (coef : α) (h₂ : coef ≠ 0)
+    : beta_is_solution system β → beta_is_solution (smul_row system i h₁ coef h₂) β := by
+  intro beta_sol
+  rw [beta_is_solution] at *
+  intro index
+  apply Or.elim (eq_or_ne (index.1) i)
+  . intro indeqi
+    simp only [smul_row_defn]
+    rw [vector_set_same_index system _ i h₁ ↑index indeqi]
+    . rw [eval_smul]
+      have β := beta_sol ⟨i, h₁⟩
+      simp only at β
+      simp only [β]
+      ring
+    . exact ⟨2, by omega⟩
+    . exact ⟨2, by omega⟩
+    . exact ⟨2, by omega⟩
+  . intro indneqi
+    simp only [smul_row_defn]
+    rw [vector_set_diff_index _ _ _ _ _ _ (indneqi)]
+    exact beta_sol ↑index
+
+lemma reverse_smul (system : linearSystem α k n) (i : ℕ) (h₁ : i < k) (coef : α) (h₂ : coef ≠ 0)
+    : smul_row (smul_row system i h₁ coef h₂) i h₁ coef⁻¹ (by field_simp) = system := by
+  apply vector_ext
+  rintro ⟨index, indleqk⟩
+  apply Or.elim (eq_or_ne index i)
+  . intro indeqi
+    simp
+    let two : {x : ℕ // x > 1} := ⟨2, Nat.one_lt_two⟩
+    rw [@vector_set_same_index two two two, @vector_set_same_index two two two]
+    . rw [smul_smul]
+      field_simp
+      simp only [indeqi]
+    . rfl
+    . exact indeqi
+  . intro indneqi
+    simp
+    rw [vector_set_diff_index _ _ _ _ _ _ (indneqi), vector_set_diff_index _ _ _ _ _ _ (indneqi)]
+
+theorem smul_opr_preserves_sol_iff (system : linearSystem α k n) (β : Vector α (n - 1)) (i : ℕ) (h₁ : i < k) (coef : α) (h₂ : coef ≠ 0)
+    : beta_is_solution system β ↔ beta_is_solution (smul_row system i h₁ coef h₂) β := by
+  apply Iff.intro
+  . apply smul_opr_preserves_sol
+  . nth_rewrite 2 [← reverse_smul system i h₁ coef h₂]
+    apply smul_opr_preserves_sol
+
+
 
 end RowOperations
