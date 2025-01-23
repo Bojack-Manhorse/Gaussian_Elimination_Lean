@@ -10,10 +10,10 @@ open LinearEquation
 abbrev linearSystem (α : Type) [Field α] [Inhabited α] (num_eqns num_vars : ℕ) :=
   Vector (linearEquation α num_vars) num_eqns
 
-variable {α : Type} [Field α] [Inhabited α] {len k n : {x : ℕ // x > 1}}
+variable {α : Type} [Field α] [Inhabited α] {k n : {x : ℕ // x > 1}}
 
-instance [Inhabited α] : Inhabited (linearEquation α len) :=
-  ⟨Array.replicate len default, by simp [Array.size]⟩
+instance [Inhabited α] : Inhabited (linearEquation α n) :=
+  ⟨Array.replicate n default, by simp [Array.size]⟩
 
 /- Function to add `coef * row i` to `row j`: -/
 def add_row (system : linearSystem α k n) (coef : α) (i j : ℕ) (h₁ : i < k) (h₂ : j < k)
@@ -219,14 +219,12 @@ theorem swap_opr_preserves_sol (system : linearSystem α k n) (β : Vector α (n
     /- For some random reason lean wants me to give a natural numbers bigger than one?-/
     exact ⟨2, by norm_num⟩
     exact ⟨2, by norm_num⟩
-    exact ⟨2, by norm_num⟩
   . intro indneqi
     apply Or.elim (eq_or_ne (index.1) j)
     . intro indeqj
       rw [vec_eq_index (swap_row system i j h₁ h₂) j index indeqj, swap_vectors_same_right]
       exact h ⟨i, h₁⟩
       /- Same as above??!!-/
-      exact ⟨2, by norm_num⟩
       exact ⟨2, by norm_num⟩
       exact ⟨2, by norm_num⟩
     . intro indneqj
@@ -302,7 +300,6 @@ theorem smul_opr_preserves_sol (system : linearSystem α k n) (β : Vector α (n
       ring
     . exact ⟨2, by omega⟩
     . exact ⟨2, by omega⟩
-    . exact ⟨2, by omega⟩
   . intro indneqi
     simp only [smul_row_defn]
     rw [vector_set_diff_index _ _ _ _ _ _ (indneqi)]
@@ -316,7 +313,7 @@ lemma reverse_smul (system : linearSystem α k n) (i : ℕ) (h₁ : i < k) (coef
   . intro indeqi
     simp
     let two : {x : ℕ // x > 1} := ⟨2, Nat.one_lt_two⟩
-    rw [@vector_set_same_index two two two, @vector_set_same_index two two two]
+    rw [@vector_set_same_index two two , @vector_set_same_index two two]
     . rw [smul_smul]
       field_simp
       simp only [indeqi]
@@ -332,7 +329,5 @@ theorem smul_opr_preserves_sol_iff (system : linearSystem α k n) (β : Vector �
   . apply smul_opr_preserves_sol
   . nth_rewrite 2 [← reverse_smul system i h₁ coef h₂]
     apply smul_opr_preserves_sol
-
-
 
 end RowOperations

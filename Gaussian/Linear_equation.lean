@@ -1,5 +1,6 @@
 import Mathlib.Algebra.Module.Defs
 import ZKLib.Data.UniPoly
+import Gaussian.Utils
 
 namespace LinearEquation
 

@@ -51,7 +51,6 @@ For each l : Check system[l][l] ≠ 0
 Have a representation thats of the form Fin num_rows → Fun num_columns → α
 
 -/
-section unnamed
 
 variable {α : Type} [Field α] [DecidableEq α] [Inhabited α] {k n : {x : ℕ // x > 1}} (kgtn : k > n) -- (i j : ℕ) (h₁ : i < n) (h₂ : j < k)
 
@@ -167,6 +166,8 @@ def pivot_system (system : linearSystem α k n) (i : ℕ) (h₁ : i < n) : (line
 def row_reduce_system (system : linearSystem α k n) : linearSystem α k n :=
     Fin.foldr n (fun (column : Fin n) (system' : (linearSystem α k n)) => pivot_system kgtn system' column.1 column.2) system
 
+/- Section on various forms of systems e.g. Upper Triangular-/
+
 def system_in_upper_triangular (system : linearSystem α k n) : Prop :=
     ∀ (var : Fin n) (eqn : Fin k), ( eqn.1 > var.1 → ((row_reduce_system kgtn system)[eqn]'(eqn.2))[var]'(var.2) = 0)
 
@@ -186,9 +187,17 @@ def system_has_unique_solution (system : linearSystem α k n) : Prop :=
 lemma unique_sol_implies_reduced_ref (system : linearSystem α k n) (unique_sol : system_has_unique_solution system) (rref : system_in_ref kgtn system)
         : (system_in_reduced_ref kgtn system) := by sorry
 
-/- Need this to be a sigma type of ⟨rank, rank < n, ∀ x > rank, system[x] = 0 ⟩ -/
 def get_rank (system : linearSystem α k n) (h : system_in_upper_triangular kgtn system) : {x : ℕ // x < n} :=
-    sorry
+    let first_n_rows := Array.extract system.toArray 0 n
+    have h₁: first_n_rows.size = n := by
+        rw [Array.size_extract]
+        simp
+        apply Nat.le_of_succ_le kgtn
+    let rank := (first_n_rows.filter (fun x => x != 0)).size
+    have ranklen : rank ≤ ↑n := by
+        simp only [← h₁, rank]
+        apply Array.size_filter_le
+    ⟨rank - 1, by omega⟩
 
 /- Rank row is non-zero -/
 lemma non_zero_at_rank (system : linearSystem α k n) (h : system_in_upper_triangular kgtn system) : system[(get_rank kgtn system h).1]'(Nat.lt_trans (get_rank kgtn system h).2 kgtn) ≠ 0 := sorry
@@ -227,7 +236,5 @@ def get_unique_solution (system : linearSystem α k n) (h : system_in_reduced_re
     apply Or.elim eq_or_neq
     done-/
 
-
-end unnamed
 
 end Gaussian
