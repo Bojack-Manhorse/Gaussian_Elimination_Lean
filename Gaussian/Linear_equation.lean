@@ -1,55 +1,75 @@
 import Mathlib.Algebra.Module.Defs
 import ZKLib.Data.UniPoly
 import Gaussian.Utils
+import Batteries.Data.Vector
+import Batteries.Data.Array
+import Mathlib.Data.Vector.Basic
+
+abbrev LinearEquation (α : Type) [Field α] [Inhabited α] (num_vars : ℕ) :=
+  Vector α num_vars
 
 namespace LinearEquation
 
+variable {α : Type} [Field α] [Inhabited α]
+         {len : ℕ}
 
-/-@[ext]
-structure linear_equation (len : ℕ) (α : Type) [Field α] [Inhabited α] where
-  coefficients : Array α
-  length : coefficients.size = len-/
+/--
+I've reduced some clutter in the statement and used the `List.getElem_zip` to prove this trivially.
 
-variable {α : Type} [Field α] [Inhabited α] {len : {x : ℕ // x > 1}}
+A lemma which hopefully will be VERY useful:
+-/
+lemma zip_index_swap {α : Type} {p q : Array α} {i : ℕ} (h : i < (p.zip q).size) :
+  (p.zip q)[i]'(by aesop) = ⟨p[i]'(by aesop), q[i]'(by aesop)⟩ := by cases p; cases q; simp
 
-abbrev linearEquation (α : Type) [Field α] [Inhabited α] (num_vars : ℕ) :=
-  Vector α num_vars
+lemma getElem_zipWith {α : Type} {p q : Array α} {i : ℕ} {f}
+  (h₀ : i < (p.zip q).size)
+  (h₁ : ∀ x y, (f x y).length = x.length) :
+  (p.zipWith q f)[i]'(by aesop) = ⟨p[i]'(by aesop), q[i]'(by aesop)⟩ := by cases p; cases q; simp
 
-  -- #[1,2,3] := x + 2y + 3 = 0
+variable {p q : LinearEquation α len}
 
-/- A lemma which hopefully will be VERY useful: -/
-lemma zip_index_swap {β : Type} {n : ℕ} {p q : Array β} {h₁ : p.size = n} {h₂ : q.size = n} {i : ℕ} (h : i < n) :
-  (p.zip q)[i]'(by aesop) =
-  ⟨p[i]'(by aesop), q[i]'(by aesop)⟩ := by
-  induction i <;>
-  . rcases p with ⟨⟨_ | _⟩, h₁⟩ <;>
-    rcases q with ⟨⟨_ | _⟩, h₂⟩ <;> try (simp at h₁ h₂; omega)
-    aesop
+/--
+This is (eq.map f).length = eq.length and then (zip a b).length = a.length for the appropraitely lengthed equations.
+-/
+-- lemma add_zip_array_size
 
-lemma add_zip_array_size (p q : linearEquation α len): (Array.map (fun x => x.1 + x.2) (p.zip q.toArray)).size = len := by
-  rw [Array.size_map, Array.size_zip, Vector.size_toArray, Vector.size_toArray, min_self]
+/-
+Note that `simp` does this because of `(eq.map f).length = eq.length` and `(zip a b).length = a.length`
 
-/- Here's the addition operation on `linear_equation`: -/
-instance : Add (linearEquation α len) where
-  add p q := ⟨Array.map (fun x => x.1 + x.2) (p.zip q.toArray), by apply add_zip_array_size⟩
+Here's the addition operation on `linear_equation`:
+-/
+instance : Add (LinearEquation α len) where
+  add p q := p.zipWith q (·+·)
 
-@[simp]
-lemma defn_of_add_with_index (p q : linearEquation α len) (i : ℕ) (h : i < len) : (p + q)[i]'(h) = (Array.map (fun x => x.1 + x.2) (p.zip q.toArray))[i]'(by rw [add_zip_array_size]; assumption) := by
-  rfl
+/-
+Let's keep the abstraction I think, simp undoes some of it here.
+-/
 
-@[simp]
-lemma defn_of_add_no_index (p q : linearEquation α len) : (p + q).toArray = Array.map (fun x => x.1 + x.2) (p.zip q.toArray) := by
-  rfl
+-- @[simp]
+-- lemma defn_of_add_with_index (p q : linearEquation α len) (i : ℕ) (h : i < len) : (p + q)[i]'(h) = (Array.map (fun x => x.1 + x.2) (p.zip q.toArray))[i]'(by rw [add_zip_array_size]; assumption) := by
+--   rfl
 
-@[simp]
-lemma vector_to_array_element {β : Type} {num : ℕ} (p : Vector β num) (i : ℕ) (h : i < num)
-    : p.toArray[i]'(by rw [Vector.size_toArray]; exact h) = p[i]'(h) := by rfl
+-- @[simp]
+-- lemma defn_of_add_no_index (p q : linearEquation α len) : (p + q).toArray = Array.map (fun x => x.1 + x.2) (p.zip q.toArray) := by
+--   rfl
+
+/-
+Proobably not needed.
+-/
+-- @[simp]
+-- lemma vector_to_array_element {β : Type} {num : ℕ} (p : Vector β num) (i : ℕ) (h : i < num)
+--     : p.toArray[i]'(by rw [Vector.size_toArray]; exact h) = p[i]'(h) := by rfl
 
 /- Show that we can swap `+` and `[i]` using `zip_index_swap`: -/
+lemma index_is_linear {i : Fin len} : (p + q)[i] = p[i] + q[i] := by
+  simp [·+·, Add.add]
+  rcases p with ⟨_ | ⟨hd, tl⟩, hp⟩
+  rcases q with ⟨_ | ⟨hd, tl⟩, hp⟩
+  induction' i with i ih
+  · simp [Add.add]; 
+  
+  
 
-lemma index_is_linear (p q : linearEquation α len) (i : ℕ) (h : i < len)
-    : (p + q)[i]'(h) = p[i]'(h) + q[i]'(h) := by
-  simp
   rw [zip_index_swap h]
   simp
   rw [vector_to_array_element, vector_to_array_element]

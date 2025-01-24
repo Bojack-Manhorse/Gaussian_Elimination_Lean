@@ -8,10 +8,10 @@ open LinearEquation
 
 open RowOperations
 
-variable {α : Type} [Field α] [Inhabited α] {k n : {x : ℕ  // x > 1}}
+variable {α : Type} [Field α] [Inhabited α] -- {k n : {x : ℕ  // x > 1}}
 
 instance [Inhabited α] : Inhabited (linearEquation α n) :=
-  ⟨Array.replicate n default, by simp [Array.size]⟩
+  ⟨Array.replicate n default, by simp⟩
 
 def change_var_add_eqn {i j : ℕ} (h₁ : i < n - 1) (h₂ : j < n - 1) (coef : α)  (eqn : linearEquation α n ): linearEquation α n :=
   eqn.set j (eqn[j] + coef * eqn[i])
