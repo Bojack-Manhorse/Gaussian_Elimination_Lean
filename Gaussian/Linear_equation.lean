@@ -21,10 +21,8 @@ A lemma which hopefully will be VERY useful:
 lemma zip_index_swap {α : Type} {p q : Array α} {i : ℕ} (h : i < (p.zip q).size) :
   (p.zip q)[i]'(by aesop) = ⟨p[i]'(by aesop), q[i]'(by aesop)⟩ := by cases p; cases q; simp
 
-lemma getElem_zipWith {α : Type} {p q : Array α} {i : ℕ} {f}
-  (h₀ : i < (p.zip q).size)
-  (h₁ : ∀ x y, (f x y).length = x.length) :
-  (p.zipWith q f)[i]'(by aesop) = ⟨p[i]'(by aesop), q[i]'(by aesop)⟩ := by cases p; cases q; simp
+lemma getElem_zipWith {α β : Type} {p q : Vector α len} {i : Fin len} {f : α → α → β} :
+  (p.zipWith q f)[i] = f p[i] q[i] := by simp
 
 variable {p q : LinearEquation α len}
 
