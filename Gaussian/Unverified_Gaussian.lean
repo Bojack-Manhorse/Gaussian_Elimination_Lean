@@ -3,7 +3,6 @@ import Gaussian.Row_Operations
 
 namespace unverified
 
-
 open RowOperations
 
 variable {α : Type} [Field α] [DecidableEq α] [Inhabited α] {k n : {x : ℕ // x > 1}} (kgtn : k > n)

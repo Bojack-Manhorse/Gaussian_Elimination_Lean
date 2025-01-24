@@ -207,14 +207,34 @@ lemma last_row_proper_form (system : linearSystem α k n) (h : system_in_upper_t
         let rank := get_rank kgtn system h
         ∃ index : Fin (n - 1), (system[rank.1]'(Nat.lt_trans rank.2 kgtn))[index] ≠ 0 := sorry
 
+def init_vector : Vector (Option α) (n - 1) := ⟨Array.replicate (n - 1) (none), by simp⟩
 
+instance (v : {x : ℕ // x > 1}) (m : Fin (v - 1)) : Fintype {x : ℕ // x > m.1 ∧ x < v.1} := sorry
+
+/- Given a row of `system` and some vector `β Vector (Option α) (n - 1)`, we fold over this function `n` times to get the solutions from this row: -/
+def get_solution_row_fold_func (row : linearEquation α n) : Vector (Option α) (n - 1) → Fin (n - 1) → Vector (Option α) (n - 1) :=
+    fun (init : Vector (Option α) (n - 1)) (m : Fin (n - 1)) =>
+        if row[m] == 0 then init
+        else if init[m]'(m.2) != (none : Option α) then init
+        else
+            let mapped_init := init.map (fun x : Option α =>
+                match x with
+                    | none => 0
+                    | some y => y
+                )
+            init.set m (row[n.1 - 1]'(by omega) - ∑ x : {x : ℕ // x > m.1 ∧ x < n.1}, (row[x]'(x.2.1) * mapped_init[x] ) )
+        sorry
 
 /- Read of solution -/
 def get_solution (system : linearSystem α k n) (h : system_in_ref kgtn system) (has_sol : ∃ β, beta_is_solution system β) : Vector α (n - 1) := by
-    let rank := get_rank kgtn system h.1
-    let last_row := system[rank.1]'(Nat.lt_trans rank.2 kgtn)
-    have : last_row ≠ 0 := sorry
-    sorry
+    let rows_zipped := system.toArray.zip (Array.finRange k)
+    let non_zero_rows := rows_zipped.filter (fun eqn => eqn.1 != 0)
+    let last_non_zero_row := non_zero_rows[non_zero_rows.size - 1]?
+
+    let sol_fold_fun : (Vector (α × Bool) (n - 1)) →  ℕ → (Vector (α × Bool) (n - 1)) :=
+     sorry
+
+
 
 def get_unique_solution (system : linearSystem α k n) (h : system_in_reduced_ref kgtn system)
         : Vector α (n - 1) :=
@@ -224,7 +244,7 @@ def get_unique_solution (system : linearSystem α k n) (h : system_in_reduced_re
         omega
     let first_n_minus_one_row := system.extract 0 (n - 1)
 
-    let first_n_minus_one_row_casted : Vector _ (n - 1):=
+    let first_n_minus_one_row_casted : Vector _ (n - 1) :=
         ⟨first_n_minus_one_row.toArray, by rw [Vector.size_toArray]; exact h₁ ⟩
     first_n_minus_one_row_casted.map (fun x : linearEquation α n => x[n.1 - 1]'(by omega))
 

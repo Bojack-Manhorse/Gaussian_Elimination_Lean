@@ -32,7 +32,8 @@ theorem change_var_add_preserves_sol (system : linearSystem α k n) {i j : ℕ} 
   intro original_sol
   rw [beta_is_solution] at *
   intro i
-  simp [change_var_add_vec, add_column]
+  simp only [change_var_add_vec, add_column, eval_poly]
+
 
 
 end ColumnOperations
