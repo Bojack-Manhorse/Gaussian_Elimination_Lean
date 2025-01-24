@@ -209,7 +209,10 @@ lemma last_row_proper_form (system : linearSystem α k n) (h : system_in_upper_t
 
 def init_vector : Vector (Option α) (n - 1) := ⟨Array.replicate (n - 1) (none), by simp⟩
 
-instance (v : {x : ℕ // x > 1}) (m : Fin (v - 1)) : Fintype {x : ℕ // x > m.1 ∧ x < v.1} := sorry
+instance (v : {x : ℕ // x > 1}) (m : Fin (v - 1)) : Fintype {x : ℕ // x > m.1 ∧ x < v.1} := by
+    apply @Fintype.ofInjective {x : ℕ // x > m.1 ∧ x < v.1} (Fin v) _ (fun x => ⟨x.1, x.2.2⟩ : Fin v)
+    sorry
+
 
 /- Given a row of `system` and some vector `β Vector (Option α) (n - 1)`, we fold over this function `n` times to get the solutions from this row: -/
 def get_solution_row_fold_func (row : linearEquation α n) : Vector (Option α) (n - 1) → Fin (n - 1) → Vector (Option α) (n - 1) :=
