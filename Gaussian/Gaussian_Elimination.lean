@@ -52,7 +52,40 @@ Have a representation thats of the form Fin num_rows → Fun num_columns → α
 
 -/
 
-variable {α : Type} [Field α] [DecidableEq α] [Inhabited α] {k n : {x : ℕ // x > 1}} (kgtn : k > n) -- (i j : ℕ) (h₁ : i < n) (h₂ : j < k)
+section LinEqnLemmas
+
+variable {α : Type} [Field α] [DecidableEq α] [Inhabited α] {n : {x : ℕ // x > 1}}
+
+def init_vector : Vector (Option α) (n - 1) := ⟨Array.replicate (n - 1) (none), by simp⟩
+
+instance (v : {x : ℕ // x > 1}) (m : Fin (v - 1)) : Fintype {x : ℕ // x > m.1 ∧ x < v.1 - 1} where
+    elems := Finset.Ioo ⟨m.1 + 1, And.intro (by omega) (by apply? )⟩ ⟨v.1 - 1, by omega⟩
+    complete := sorry
+
+#eval Finset.Ico 1 4
+
+/- Given a row of `system` and some vector `β : Vector (Option α) (n - 1)`, we fold over this function `n` times to get the solutions from this row: -/
+def get_solution_row_fold_func (row : linearEquation α n) : Fin (n - 1) → Vector (Option α) (n - 1) → Vector (Option α) (n - 1) :=
+    fun (m : Fin (n - 1)) (init : Vector (Option α) (n - 1))  =>
+        if row[m] == 0 then init
+        else if init[m]'(m.2) != (none : Option α) then init
+        else
+            let mapped_init := init.map (fun x : Option α =>
+                match x with
+                    | none => 0
+                    | some y => y
+                )
+            init.set m ((row[n.1 - 1]'(by omega) - ∑ x : {x : ℕ // x > m.1 ∧ x < n.1 - 1}, (row[x.1] * mapped_init[x.1]'(x.2.2)) ) / row[m])
+
+def get_solutions_from_row (row : linearEquation α n) (vec : Vector (Option α) (n - 1)) :Vector (Option α) (n - 1) :=
+    have : {x : ℕ // x > 1} := n
+    Fin.foldr (n - 1) (get_solution_row_fold_func row) vec
+
+end LinEqnLemmas
+
+section LinSysLemmas
+
+variable {α : Type} [Field α] [DecidableEq α] [Inhabited α] {n k : {x : ℕ // x > 1}} (kgtn : k > n)
 
 def iltk (i : ℕ) (h : i < n.1) : i < k := Nat.lt_trans h kgtn
 
@@ -187,6 +220,7 @@ def system_has_unique_solution (system : linearSystem α k n) : Prop :=
 lemma unique_sol_implies_reduced_ref (system : linearSystem α k n) (unique_sol : system_has_unique_solution system) (rref : system_in_ref kgtn system)
         : (system_in_reduced_ref kgtn system) := by sorry
 
+/- This is not the rank! -/
 def get_rank (system : linearSystem α k n) (h : system_in_upper_triangular kgtn system) : {x : ℕ // x < n} :=
     let first_n_rows := Array.extract system.toArray 0 n
     have h₁: first_n_rows.size = n := by
@@ -207,26 +241,7 @@ lemma last_row_proper_form (system : linearSystem α k n) (h : system_in_upper_t
         let rank := get_rank kgtn system h
         ∃ index : Fin (n - 1), (system[rank.1]'(Nat.lt_trans rank.2 kgtn))[index] ≠ 0 := sorry
 
-def init_vector : Vector (Option α) (n - 1) := ⟨Array.replicate (n - 1) (none), by simp⟩
 
-instance (v : {x : ℕ // x > 1}) (m : Fin (v - 1)) : Fintype {x : ℕ // x > m.1 ∧ x < v.1} := by
-    apply @Fintype.ofInjective {x : ℕ // x > m.1 ∧ x < v.1} (Fin v) _ (fun x => ⟨x.1, x.2.2⟩ : Fin v)
-    sorry
-
-
-/- Given a row of `system` and some vector `β Vector (Option α) (n - 1)`, we fold over this function `n` times to get the solutions from this row: -/
-def get_solution_row_fold_func (row : linearEquation α n) : Vector (Option α) (n - 1) → Fin (n - 1) → Vector (Option α) (n - 1) :=
-    fun (init : Vector (Option α) (n - 1)) (m : Fin (n - 1)) =>
-        if row[m] == 0 then init
-        else if init[m]'(m.2) != (none : Option α) then init
-        else
-            let mapped_init := init.map (fun x : Option α =>
-                match x with
-                    | none => 0
-                    | some y => y
-                )
-            init.set m (row[n.1 - 1]'(by omega) - ∑ x : {x : ℕ // x > m.1 ∧ x < n.1}, (row[x]'(x.2.1) * mapped_init[x] ) )
-        sorry
 
 /- Read of solution -/
 def get_solution (system : linearSystem α k n) (h : system_in_ref kgtn system) (has_sol : ∃ β, beta_is_solution system β) : Vector α (n - 1) := by
@@ -234,10 +249,19 @@ def get_solution (system : linearSystem α k n) (h : system_in_ref kgtn system) 
     let non_zero_rows := rows_zipped.filter (fun eqn => eqn.1 != 0)
     let last_non_zero_row := non_zero_rows[non_zero_rows.size - 1]?
 
-    let sol_fold_fun : (Vector (α × Bool) (n - 1)) →  ℕ → (Vector (α × Bool) (n - 1)) :=
-     sorry
+    let sol_fold_fun : (Vector (Option α) (n - 1)) →  ℕ → (Vector (Option α) (n - 1)) :=
+    sorry
 
+/-
+instance (v : {x : ℕ // x > 1}) (m : Fin (v - 1)) : Fintype {x : ℕ // x > m.1 ∧ x < v.1} where
+  elems := Finset.Ico ⟨m.1 + 1, by omega⟩ ⟨v.1 - 1, by omega⟩
+  complete := by
+-/
 
+example (i j : ℕ) (h : i < j) : i ≤ j + 1 := Nat.le_add_right_of_le (Nat.le_of_succ_le h)
+
+def vector_fin_range (m : ℕ) : Vector (Fin m) m :=
+    ⟨Array.finRange m, by simp [Array.finRange]⟩
 
 def get_unique_solution (system : linearSystem α k n) (h : system_in_reduced_ref kgtn system)
         : Vector α (n - 1) :=
@@ -245,19 +269,11 @@ def get_unique_solution (system : linearSystem α k n) (h : system_in_reduced_re
         apply min_eq_left_of_lt
         refine Nat.lt_trans ?_ kgtn
         omega
-    let first_n_minus_one_row := system.extract 0 (n - 1)
+    let first_n_minus_one_row : Vector (linearEquation α n) (n - 1) := ⟨(system.extract 0 (n - 1)).toArray, by rw [Vector.size_toArray]; simp; exact Nat.le_add_right_of_le (Nat.le_of_succ_le kgtn) ⟩
 
-    let first_n_minus_one_row_casted : Vector _ (n - 1) :=
-        ⟨first_n_minus_one_row.toArray, by rw [Vector.size_toArray]; exact h₁ ⟩
-    first_n_minus_one_row_casted.map (fun x : linearEquation α n => x[n.1 - 1]'(by omega))
+    Vector.zipWith first_n_minus_one_row (vector_fin_range (n - 1)) (fun row index => - row[n.1 - 1]'(by omega) / row[index.1]'(by apply Nat.lt_trans index.2 _; omega) )
 
 
-
-    /-let rank := get_rank kgtn system h
-    let prop : Prop := (system[rank.1]'(Nat.lt_trans rank.2 kgtn))[rank.1] = (system[rank.1]'(Nat.lt_trans rank.2 kgtn))[rank.1 - 1]
-    have eq_or_neq: prop ∨ ¬prop := eq_or_ne system[↑rank][↑rank] system[↑rank][↑rank - 1]
-    apply Or.elim eq_or_neq
-    done-/
-
+end LinSysLemmas
 
 end Gaussian
