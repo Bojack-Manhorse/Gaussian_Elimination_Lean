@@ -21,8 +21,16 @@ A lemma which hopefully will be VERY useful:
 lemma zip_index_swap {α : Type} {p q : Array α} {i : ℕ} (h : i < (p.zip q).size) :
   (p.zip q)[i]'(by aesop) = ⟨p[i]'(by aesop), q[i]'(by aesop)⟩ := by cases p; cases q; simp
 
+@[simp]
 lemma getElem_zipWith {α β : Type} {p q : Vector α len} {i : Fin len} {f : α → α → β} :
-  (p.zipWith q f)[i] = f p[i] q[i] := by simp
+  (p.zipWith q f)[i] = f p[i] q[i] := by
+  rcases p with ⟨p, hp⟩
+  rcases q with ⟨q, hq⟩
+  rcases len with _ | len
+  · cases i; omega
+  · rcases p with _ | _ <;> simp at hp
+    rcases q with _ | _ <;> simp at hq
+    rcases i with _ | i <;> simp
 
 variable {p q : LinearEquation α len}
 
@@ -59,23 +67,9 @@ Proobably not needed.
 --     : p.toArray[i]'(by rw [Vector.size_toArray]; exact h) = p[i]'(h) := by rfl
 
 /- Show that we can swap `+` and `[i]` using `zip_index_swap`: -/
-lemma index_is_linear {i : Fin len} : (p + q)[i] = p[i] + q[i] := by
-  simp [·+·, Add.add]
-  rcases p with ⟨_ | ⟨hd, tl⟩, hp⟩
-  rcases q with ⟨_ | ⟨hd, tl⟩, hp⟩
-  induction' i with i ih
-  · simp [Add.add]; 
-  
-  
-
-  rw [zip_index_swap h]
-  simp
-  rw [vector_to_array_element, vector_to_array_element]
-  . exact p.size_toArray
-  . exact q.size_toArray
+lemma index_is_linear {i : Fin len} : (p + q)[i] = p[i] + q[i] := getElem_zipWith
 
 /- Since we'll need to show that adding two elements of `linearEquation α len` gives an array of length `len`: -/
-
 @[simp]
 lemma add_size (p q : linearEquation α len) : (p + q).size = p.size := by
   rw [defn_of_add_no_index, add_zip_array_size, p.size_toArray]
