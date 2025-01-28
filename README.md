@@ -8,7 +8,10 @@ Given a system of linear equation with $m$ equations and $n$ variables over a fi
 
 ## Approach
 
-We assume each of them $m$ equations are of the form $\sum\limits_{i = 1}^n a_{j, i} x_i - c_j = 0$ where $0 \leq j < m$ and $a_{j, i}, c_j$ are elements of the field $F$. 
+We assume each of the $m$ equations are of the form 
+$$\sum\limits_{i = 1}^n a_{j, i} x_i - c_j = 0$$
+
+where $0 \leq j < m$ and $a_{j, i}, c_j$ are elements of the field $F$. 
 
 We then interpret this as a system of two matices $M \in F^{m \times n}$ and $b \in F^{n \times 1}$, where $M_{j, i} = a_{j, i}$ and $b_{j} = c_j$. Our goal is to construct some $\overline{x} \in F^{n \times 1}$ such that $M \overline{x} = b$ and verify in Lean that $\overline{x}$ does indeed satisfy the equation.
 
