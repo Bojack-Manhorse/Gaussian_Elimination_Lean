@@ -8,7 +8,8 @@ Given a system of linear equation with $m$ equations and $n$ variables over a fi
 
 ## Approach
 
-We assume each of the $m$ equations are of the form 
+We assume each of the $m$ equations are of the form
+
 $$\sum\limits_{i = 1}^n a_{j, i} x_i - c_j = 0$$
 
 where $0 \leq j < m$ and $a_{j, i}, c_j$ are elements of the field $F$. 
