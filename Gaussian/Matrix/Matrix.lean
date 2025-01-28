@@ -66,11 +66,6 @@ lemma list_ofFn_mem {β : Type} (a : β) (m : ℕ) (f : Fin m → β) (i : Fin m
   simp
   exact ⟨i, Eq.symm aeq⟩
 
-example (m l : ℕ) (φ : Prop) (h : if m < l then False else φ) (h2 : m ≥ l) : φ := by
-  have h3 : ¬ m < l := Nat.not_lt.mpr h2
-  simp at h
-
-
 lemma cond_for_false {system : @linearSystem α num_vars num_eqns} (h : is_diagonal system.vars) (i : Fin num_eqns)
     : (i ≥ num_vars ∧ system.const i 0 ≠ 0 ) → is_false_diagonal system h := by
   rintro ⟨igeq, cnezero⟩
@@ -110,8 +105,6 @@ lemma diagonal_system_has_no_solutions (system : @linearSystem α num_vars num_e
   apply Iff.intro
   . sorry
   . sorry
-
-
 
 /- Given a system `system` such that `system.vars` is in diagonal form and it has a solution, construct some `β : Matrix (Fin num_vars) (Fin 1) α` that should be a solution (i.e. `system.vars * β == system.const`). -/
 def get_sol_diagonal (system : @linearSystem α num_vars num_eqns ) (h1 : is_diagonal system.vars) (h2 : ¬ is_false_diagonal system h1)
@@ -197,6 +190,40 @@ lemma check_diagonal_sol (system : @linearSystem α num_vars num_eqns ) (h1 : is
       rw [Fin.fin_one_eq_zero k] at *
 
 end DiagonalMatrices
+
+section NonDiagonalSolutions
+
+lemma left_mul_matrix {m : ℕ} (C : Matrix (Fin m) (Fin m) α) [Invertible C] (A B : Matrix (Fin m) (Fin 1) α) (h : C * A = C * B) : A = B := by
+  have h1 : ⅟C * (C * A) = ⅟C * (C * B) := by exact congrArg (HMul.hMul ⅟C) h
+  rw [← Matrix.mul_assoc, ← Matrix.mul_assoc] at h1
+  rw [Matrix.mul_] at h1
+
+example (C : Matrix (Fin n) (Fin n) α) [Invertible C]
+
+
+def get_solution_from_diagonalise (system : @linearSystem α num_vars num_eqns)
+    (P_row : Matrix (Fin num_eqns) (Fin num_eqns) α) [Invertible P_row]
+    (P_col : Matrix (Fin num_vars) (Fin num_vars) α) [Invertible P_col]
+    (h : is_diagonal (P_row * system.vars * P_col))
+    /- Need to put something about solutions existing -/
+    : Matrix (Fin num_vars) (Fin 1) α :=
+  let new_system : linearSystem := ⟨P_row * system.vars * P_col, P_row * system.const⟩
+  P_col * @get_sol_diagonal α _ _ num_vars num_eqns new_system h (sorry)
+
+def check_solution (system : @linearSystem α num_vars num_eqns)
+    (P_row : Matrix (Fin num_eqns) (Fin num_eqns) α) [Invertible P_row]
+    (P_col : Matrix (Fin num_vars) (Fin num_vars) α) [Invertible P_col]
+    (h : is_diagonal (P_row * system.vars * P_col))
+    : is_sol system (get_solution_from_diagonalise system P_row P_col h) := by
+  rw [is_sol, beq_iff_eq]-- get_solution_from_diagonalise]
+  have : P_row * system.vars * (get_solution_from_diagonalise system P_row P_col h) = P_row * system.const := by
+    rw [get_solution_from_diagonalise]
+    apply is_sol
+
+
+
+
+end NonDiagonalSolutions
 
 
 end MatrixElimination
