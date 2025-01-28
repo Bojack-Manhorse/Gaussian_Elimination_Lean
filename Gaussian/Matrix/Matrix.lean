@@ -152,13 +152,11 @@ lemma diag_mul_verify (D : Matrix (Fin num_eqns) (Fin num_vars) α) (h : is_diag
 lemma check_diagonal_sol (system : @linearSystem α num_vars num_eqns ) (h1 : is_diagonal system.vars) (h2 : ¬ is_false_diagonal system h1)
     : is_sol system (get_sol_diagonal system h1 h2) := by
   rw [is_sol, beq_iff_eq]
-  --rw [is_diagonal] at h1
   simp at h2
   rw [diag_mul_verify system.vars h1]
   rw [diag_mul_eval, get_sol_diagonal]
   apply Matrix.ext
   intro i k
-  --
   simp
   apply Or.elim (le_or_lt num_vars ↑i)
   . intro igenvars
@@ -196,10 +194,8 @@ section NonDiagonalSolutions
 lemma left_mul_matrix {m : ℕ} (C : Matrix (Fin m) (Fin m) α) [Invertible C] (A B : Matrix (Fin m) (Fin 1) α) (h : C * A = C * B) : A = B := by
   have h1 : ⅟C * (C * A) = ⅟C * (C * B) := by exact congrArg (HMul.hMul ⅟C) h
   rw [← Matrix.mul_assoc, ← Matrix.mul_assoc] at h1
-  rw [Matrix.mul_] at h1
-
-example (C : Matrix (Fin n) (Fin n) α) [Invertible C]
-
+  rw [invOf_mul_self] at h1
+  simp at h1
 
 def get_solution_from_diagonalise (system : @linearSystem α num_vars num_eqns)
     (P_row : Matrix (Fin num_eqns) (Fin num_eqns) α) [Invertible P_row]
@@ -215,12 +211,17 @@ def check_solution (system : @linearSystem α num_vars num_eqns)
     (P_col : Matrix (Fin num_vars) (Fin num_vars) α) [Invertible P_col]
     (h : is_diagonal (P_row * system.vars * P_col))
     : is_sol system (get_solution_from_diagonalise system P_row P_col h) := by
+  let new_system : linearSystem := ⟨P_row * system.vars * P_col, P_row * system.const⟩
+  have new_sys_defn : new_system.vars = P_row * system.vars * P_col := by rfl
   rw [is_sol, beq_iff_eq]-- get_solution_from_diagonalise]
-  have : P_row * system.vars * (get_solution_from_diagonalise system P_row P_col h) = P_row * system.const := by
-    rw [get_solution_from_diagonalise]
-    apply is_sol
-
-
+  apply left_mul_matrix P_row
+  rw [get_solution_from_diagonalise]
+  rw [← Matrix.mul_assoc system.vars _ _]
+  rw [← Matrix.mul_assoc P_row _ _]
+  rw [← Matrix.mul_assoc P_row system.vars _]
+  rw [← new_sys_defn]
+  --simp only [new_system]
+  --apply check_diagonal_sol
 
 
 end NonDiagonalSolutions
