@@ -3,9 +3,24 @@ import Mathlib.Data.Matrix.RowCol
 
 namespace MatrixElimination
 
-variable {α : Type} [Field α] [Inhabited α] [DecidableEq α]
+variable {α : Type} [Field α] 
 
 variable {numVars numEqns : ℕ}
+
+/-
+  Maybe swap like this?
+  Let's see what Julian had in mind.
+-/
+-- def M₁ : Matrix (Fin 2) (Fin 3) α := !![0, 1, 2; 3, 4, 5]
+-- def M₂ : Matrix (Fin 2) (Fin 3) α := !![3, 4, 5; 0, 1, 2]
+
+-- example : Matrix.submatrix (l := Fin 2) (o := Fin 3)
+--                            M₁
+--                            (fun row ↦ (List.finRange 2)[1 - row])
+--                            id = M₂ (α := α) := by
+--   ext r c
+--   simp [M₁, M₂]
+--   fin_cases r <;> fin_cases c <;> rfl
 
 section SystemsOfLinearEquations
 
@@ -13,6 +28,8 @@ section SystemsOfLinearEquations
 structure LinearSystem (numVars numEqns : ℕ) (α : Type) where
   vars : Matrix (Fin numEqns) (Fin numVars) α
   const : Matrix (Fin numEqns) (Fin 1) α
+
+abbrev LinearSystem.kth_const (s : LinearSystem numVars numEqns α) (i : Fin numEqns) : α := s.const i 0
 
 /- Definition of some vector `β` being a solution to some `system : linearSystem`: -/
 def isSol (system : LinearSystem numVars numEqns α) (β : Matrix (Fin numVars) (Fin 1) α) : Prop :=
@@ -42,68 +59,65 @@ def swapColMatrix (i j : Fin numVars) : Matrix (Fin numVars) (Fin numVars) α :=
 
 end Transvections
 
+section
+
+variable [DecidableEq α]
+
 section DiagonalMatrices
 
 /- Definition of a `numEqns × numVars` matrix being diagonal: -/
 def isDiagonal (D : Matrix (Fin numEqns) (Fin numVars) α) : Prop :=
   ∀ i : Fin numEqns, ∀ j : Fin numVars, (i.1 ≠ j.1 → D i j = 0)
 
-instance {D : Matrix (Fin numEqns) (Fin numVars) α} [DecidableEq α] : Decidable (isDiagonal D) := by
+instance {D : Matrix (Fin numEqns) (Fin numVars) α} : Decidable (isDiagonal D) := by
   unfold isDiagonal; infer_instance
 
+def parity (x : α) : α := if x = 0 then 0 else 1
+
+lemma parity_of_pos {x : α} (h : x = 0) : parity x = 0 := by simp [parity, h]
+
+lemma parity_of_neg {x : α} (h : x ≠ 0) : parity x = 1 := by simp [parity, h]
+
 def parityCheckFun (system : LinearSystem numVars numEqns α) (i : Fin numEqns) : α × α :=
-    if h1 : i < numVars
-    then (system.vars i ⟨i.1, by omega⟩, system.const i 1 / system.const i 1)
-    else (0, system.const i 1 / system.const i 1)
+  if h1 : i < numVars
+  then (system.vars i ⟨i.1, by omega⟩, parity (system.const i 1))
+  else (0, parity (system.const i 1))
 
 /- If `system.vars` is diagonal, then returns true if a row of `system.vars` is zero but that row of `system.const` is non-zero, meaning the system has no solutions. -/
 def noSolutionDiagonal (system : LinearSystem numVars numEqns α) : Prop :=
   (0, 1) ∈ List.ofFn (parityCheckFun system)
 
-lemma list_ofFn_mem {β : Type} (a : β) (m : ℕ) (f : Fin m → β) (i : Fin m) (aeq : a = f i) : a ∈ List.ofFn f := by
+lemma list_ofFn_mem {β : Type} {a : β} {m : ℕ} {i : Fin m} {f : Fin m → β} (aeq : a = f i) : a ∈ List.ofFn f := by
   aesop (add simp List.mem_ofFn)
 
 section ParityCheckFunLemmas
 
-variable {system : LinearSystem numVars numEqns α}
+variable {system : LinearSystem numVars numEqns α} {r : Fin numEqns}
 
-lemma parityCheckFun_of_pos {i : Fin numEqns} (h : i < numVars) :
-  parityCheckFun system i = (system.vars i ⟨i.1, by omega⟩, system.const i 1 / system.const i 1) := by
-  simp only [parityCheckFun, h, ↓reduceDIte, Fin.isValue]
+lemma parityCheckFun_of_pos (h : r < numVars) :
+  parityCheckFun system r = (system.vars r ⟨r.1, by omega⟩, parity (system.const r 0)) := by
+  simp [parityCheckFun, *]
 
-lemma parityCheckFun_of_neg {i : Fin numEqns} (h : ¬i < numVars) :
-  parityCheckFun system i = (0, system.const i 1 / system.const i 1) := by
-  simp only [parityCheckFun, h, ↓reduceDIte, Fin.isValue]
+lemma parityCheckFun_of_neg (h : ¬r < numVars) :
+  parityCheckFun system r = (0, parity (system.const r 0)) := by simp [parityCheckFun, *]
 
-lemma zero_below_diag_no_sol {system : LinearSystem numVars numEqns α} (h : isDiagonal system.vars) (i : Fin numEqns)
-    : (i ≥ numVars ∧ system.const i 0 ≠ 0 ) → noSolutionDiagonal system := by
-  rintro ⟨igeq, cnezero⟩
-  rw [noSolutionDiagonal]
-  refine list_ofFn_mem (0, 1) (numEqns) _ ?_ ?_
-  . exact i
-  . have h2 : ¬ i.1 < numVars := Nat.not_lt.mpr igeq
-    rw [parityCheckFun]
-    simp [h2]
-    field_simp
+lemma zero_below_diag_no_sol (h₁ : numVars ≤ r) (h₂ : system.const r 0 ≠ 0) : noSolutionDiagonal system := by
+  unfold noSolutionDiagonal
+  apply list_ofFn_mem (i := r)
+  rw [parityCheckFun_of_neg (by omega), parity_of_neg h₂]
 
-lemma zero_diag_implies_zero_const {system : LinearSystem numVars numEqns α} (h1 : isDiagonal system.vars) (h2 : ¬ noSolutionDiagonal system) (i : Fin numEqns)
-    : (h3 : i < numVars) → (system.vars i ⟨i.1, by omega⟩ = 0) → (system.const i 0 = 0) := by
-  intro h3 h4
-  rw [noSolutionDiagonal] at h2
+lemma not_noSolutionDiagona_iff_isDiagonal_and_zero_one_not_mem_parityCheck :
+  ¬noSolutionDiagonal system ↔ (0, 1) ∉ List.ofFn (parityCheckFun system) := by rfl
+
+lemma zero_diag_implies_zero_const (h2 : ¬noSolutionDiagonal system)
+                                   (h3 : r < numVars)
+                                   (h4 : system.vars r ⟨r.1, by omega⟩ = 0) : (system.const r 0 = 0) := by
+  rw [not_noSolutionDiagona_iff_isDiagonal_and_zero_one_not_mem_parityCheck] at h2
   by_contra constneq0
-  push_neg at constneq0
-  have parity_zero : parityCheckFun system i = (0, 1) := by
-    rw [parityCheckFun]
-    simp [h3]
-    apply And.intro
-    . assumption
-    . field_simp
-  have zero_one_in_list : (0, 1) ∈ List.ofFn (parityCheckFun system) := by
-    refine list_ofFn_mem (0, 1) (numEqns) _ ?_ ?_
-    . exact i
-    . exact Eq.symm parity_zero
-  --pull_neg at h2
-  exact h2 zero_one_in_list
+  have parity_zero : parityCheckFun system r = (0, 1) := by
+    simp [parityCheckFun_of_pos h3, h4, parity_of_neg constneq0]
+  have zero_one_in_list : (0, 1) ∈ List.ofFn (parityCheckFun system) := list_ofFn_mem parity_zero.symm
+  contradiction
 
 end ParityCheckFunLemmas
 
@@ -115,53 +129,42 @@ lemma diagonal_system_has_no_solutions (system : LinearSystem numVars numEqns α
   . sorry
 
 /- Given a system `system` such that `system.vars` is in diagonal form and it has a solution, construct some `β : Matrix (Fin numVars) (Fin 1) α` that should be a solution (i.e. `system.vars * β == system.const`). -/
-def getSolDiagonal (system : LinearSystem numVars numEqns α ) (h1 : isDiagonal system.vars) (h2 : ¬ noSolutionDiagonal system)
-    : Matrix (Fin numVars) (Fin 1) α :=
+def getSolDiagonal (system : LinearSystem numVars numEqns α ) : Matrix (Fin numVars) (Fin 1) α :=
   Matrix.of
-    (fun (i : Fin numVars) (j : Fin 1) =>
-      if eqnsgeqvars : i >= numEqns then (0 : α)
+    fun (i : Fin numVars) (j : Fin 1) =>
+      if eqnsgeqvars : numEqns ≤ i
+      then (0 : α)
       else
         let i' : Fin numEqns  := ⟨i.1, by omega⟩
         (system.const i' 0) / (system.vars i' i)
-    )
+    
 
 /- Claimed evaluation of multiplying a diagonal matrix by a vector. -/
-def diag_mul_eval (D : Matrix (Fin numEqns) (Fin numVars) α) (h : isDiagonal D) (β : Matrix (Fin numVars) (Fin 1) α) : Matrix (Fin numEqns) (Fin 1) α :=
+def diagMulEval (D : Matrix (Fin numEqns) (Fin numVars) α)
+                (β : Matrix (Fin numVars) (Fin 1) α) : Matrix (Fin numEqns) (Fin 1) α :=
     Matrix.of (fun x y =>
     if h : x.1 >= numVars then 0
     else D x ⟨x.1, by omega⟩ * β ⟨x.1, by omega⟩ y)
 
-/- Verification that `diag_mul_eval` is indeed the actual evaluation. -/
-lemma diag_mul_verify (D : Matrix (Fin numEqns) (Fin numVars) α) (h : isDiagonal D) (β : Matrix (Fin numVars) (Fin 1) α)
-    : D * β = diag_mul_eval D h β := by
-  rw [diag_mul_eval]
-  apply Matrix.ext
-  intro i k
+/- Verification that `diagMulEval` is indeed the actual evaluation. -/
+omit [DecidableEq α] in
+lemma diag_mul_verify (D : Matrix (Fin numEqns) (Fin numVars) α)
+                      (h : isDiagonal D)
+                      (β : Matrix (Fin numVars) (Fin 1) α) : D * β = diagMulEval D β := by
+  unfold diagMulEval; ext i k
+  specialize h i
   rw [Matrix.mul_apply]
-  apply Or.elim (le_or_lt numVars ↑i)
-  . intro igenvars
-    have all_zero : ∀ j : Fin (numVars), D i j * β j k = 0 := by
-      intro j
-      have D_zero := h i j (by omega)
-      simp only [D_zero, zero_mul]
-    rw [Fintype.sum_eq_zero _ all_zero]
-    simp only [ge_iff_le, Matrix.of_apply, igenvars]
-    rfl
-  . intro ilenvars
-    have inegvars : ¬ numVars ≤ i := Nat.not_le_of_lt ilenvars
-    have all_zero : ∀ j : Fin numVars, j.1 ≠ i.1 → D i j * β j k = 0 := by
-      intro j ineqj
-      have D_zero := h i j (id (Ne.symm ineqj))
-      simp only [D_zero, zero_mul]
-    rw [Fintype.sum_eq_single ⟨i, ilenvars⟩ (fun x neq => all_zero x (Fin.val_ne_of_ne neq))]
-    simp only [ge_iff_le, Matrix.of_apply, inegvars, ↓reduceDIte]
+  by_cases eq : numVars ≤ i <;> simp [eq]
+  · rw [Finset.sum_eq_zero (by specialize h · (by omega); aesop)]
+  · rw [Fintype.sum_eq_single]; aesop 
 
 /- Check that the solution from `getSolDiagonal` is indeed a solution to `system`. -/
-lemma check_diagonal_sol (system : LinearSystem numVars numEqns α ) (h1 : isDiagonal system.vars) (h2 : ¬ noSolutionDiagonal system)
-    : isSol system (getSolDiagonal system h1 h2) := by
+lemma check_diagonal_sol (system : LinearSystem numVars numEqns α)
+                         (h1 : isDiagonal system.vars) (h2 : ¬ noSolutionDiagonal system)
+    : isSol system (getSolDiagonal system) := by
   rw [isSol]
   rw [diag_mul_verify system.vars h1]
-  rw [diag_mul_eval, getSolDiagonal]
+  rw [diagMulEval, getSolDiagonal]
   apply Matrix.ext
   intro i k
   simp
@@ -172,9 +175,8 @@ lemma check_diagonal_sol (system : LinearSystem numVars numEqns α ) (h1 : isDia
       by_contra h3
       push_neg at h3
       have h5: noSolutionDiagonal system := by
-        apply zero_below_diag_no_sol h1 i
-        rw [Fin.fin_one_eq_zero k] at h3
-        exact ⟨igenvars, h3⟩
+        apply zero_below_diag_no_sol igenvars
+        rwa [Fin.fin_one_eq_zero k] at h3
       exact h2 h5
     rw [zero]
   . intro iltvars
@@ -185,10 +187,10 @@ lemma check_diagonal_sol (system : LinearSystem numVars numEqns α ) (h1 : isDia
     apply Or.elim (eq_or_ne (system.vars i ⟨i.1, by omega⟩) 0)
     . intro syseq0
       rw [syseq0]
-      ring
+      ring_nf
       rw [Fin.fin_one_eq_zero k]
       apply Eq.symm
-      apply zero_diag_implies_zero_const h1 _ i iltvars syseq0
+      apply zero_diag_implies_zero_const _ iltvars syseq0
       assumption
     . intro sysneq0
       field_simp
@@ -260,5 +262,6 @@ def check_solution (system : LinearSystem numVars numEqns α)
 
 end NonDiagonalSolutions
 
+end
 
 end MatrixElimination
