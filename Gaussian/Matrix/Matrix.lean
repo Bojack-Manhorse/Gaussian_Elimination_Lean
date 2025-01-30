@@ -3,7 +3,7 @@ import Mathlib.Data.Matrix.RowCol
 
 namespace MatrixElimination
 
-variable {α : Type} [Field α] 
+variable {α : Type} [Field α]
 
 variable {numVars numEqns : ℕ}
 
@@ -263,7 +263,7 @@ lemma diagMul_verify {D : Matrix (Fin numEqns) (Fin numVars) α}
   rw [Matrix.mul_apply]
   by_cases eq : numVars ≤ i <;> simp [eq]
   · rw [Finset.sum_eq_zero (by specialize h · (by omega); aesop)]
-  · rw [Fintype.sum_eq_single]; aesop 
+  · rw [Fintype.sum_eq_single]; aesop
 
 /- Check that the solution from `getSolDiagonal` is indeed a solution to `system`. -/
 lemma check_diagonal_sol (h1 : isDiagonal system.vars)
