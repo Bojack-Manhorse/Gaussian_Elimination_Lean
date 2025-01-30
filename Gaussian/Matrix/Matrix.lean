@@ -77,7 +77,7 @@ lemma addRowTransvection_lemma (c : α) (i j : Fin numEqns) (M : Matrix (Fin num
   apply Matrix.ext
   intro row col
   simp [addRowTransvection, Matrix.add_mul]
-  aesop (add simp Matrix.StdBasisMatrix.mul_left_apply_same, )
+  aesop (add simp Matrix.StdBasisMatrix.mul_left_apply_same)
 
 lemma addColTransvection_lemma (c : α) (i j : Fin numVars) (M : Matrix (Fin numEqns) (Fin numVars) α)
     : M * (addColTransvection c i j) =
@@ -98,15 +98,19 @@ lemma swapRowMatrix_Lemma (i j : Fin numEqns) (M : Matrix (Fin numEqns) (Fin num
         else M x y) := by
   apply Matrix.ext
   intro row col
+
   simp only [swapRowMatrix, Matrix.add_mul, Matrix.mul_one, Matrix.one_mul, Matrix.neg_mul, Matrix.mul_neg, Matrix.add_apply, Matrix.neg_apply]
   apply Or.elim (eq_or_ne row i)
   . intro roweqi
     simp only [roweqi, ↓reduceIte]
     apply Or.elim (eq_or_ne i j)
     . intro ieqj
-      simp [ieqj]
+      simp only [ieqj, Matrix.StdBasisMatrix.mul_left_apply_same, one_mul,
+        add_neg_cancel_comm_assoc, neg_add_cancel_left, Matrix.of_apply, ↓reduceIte]
     . intro ineqj
-      simp [ineqj]
+      simp only [Matrix.StdBasisMatrix.mul_left_apply_same, one_mul, ne_eq, ineqj,
+        not_false_eq_true, Matrix.StdBasisMatrix.mul_left_apply_of_ne, neg_zero, add_zero,
+        add_neg_cancel, zero_add, Matrix.of_apply, ↓reduceIte]
   . aesop
 
 lemma swapColMatrix_lemma (i j : Fin numVars) (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -217,7 +221,6 @@ lemma diagonal_system_has_no_solutions (h : isDiagonal system.vars)
   apply Iff.intro
   . intro no_sol
     intro β
-    rw [isSol]
     rw [noSolutionDiagonal] at no_sol
     apply list_ofFn_exits at no_sol
     obtain ⟨n, hn⟩ := no_sol
@@ -405,6 +408,19 @@ def makeNonZeroAtDiag (system : LinearSystem numVars numEqns α) (index : Fin nu
         then (1, swapColMatrix (row_filtered[0]'(geq)).2 index)
       else (1, 1)
 
+def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin numVars)
+    : Prop :=
+  ∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
+
+lemma diagonalOutsideInnerBlock_preserved_under_swapRowMatrix (system : LinearSystem numVars numEqns α) (index : Fin numVars) (i j : Fin numEqns) (h₁ : index.1 ≤ i.1) (h₂ : index.1 ≤ j.1) (sysdiag : diagonalOutsideInnerBlock system.vars index)
+    : diagonalOutsideInnerBlock ((swapRowMatrix i j) * system.vars) index := by
+
+
+lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag (system : LinearSystem numVars numEqns α) (index : Fin numVars) (h : diagonalOutsideInnerBlock system.vars index)
+    : let pair := makeNonZeroAtDiag system index;
+      diagonalOutsideInnerBlock (pair.1 * system.vars * pair.2) index := by
+  intro pair
+  sorry
 
 
 
