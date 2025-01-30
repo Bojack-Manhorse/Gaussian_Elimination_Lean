@@ -31,11 +31,11 @@ section Transvections
 /- Put c not zero as assumption in subseuent lemmas rather than in lemma-/
 /- Try not to require proofs in the assumptions of definitions-/
 /- From Mathlib Transvection 78-/
-def addRowTransvection (c : α) (cneqzero : c ≠ 0) {i j : Fin numVars} (ineqj : i ≠ j) :=
+def addRowTransvection (c : α) (i j : Fin numVars) :=
   1 + Matrix.stdBasisMatrix i j c
 
 /- From Mathlib Transvection 78-/
-def addColTransvection (c : α) (cneqzero : c ≠ 0) {i j : Fin numVars} (ineqj : i ≠ j) : Matrix (Fin numVars) (Fin numVars) α :=
+def addColTransvection (c : α) (i j : Fin numVars) : Matrix (Fin numVars) (Fin numVars) α :=
   1 + Matrix.stdBasisMatrix i j c
 
 
@@ -85,6 +85,9 @@ def parityCheckFun (system : LinearSystem numVars numEqns α) (i : Fin numEqns) 
     if h1 : i < numVars
     then (system.vars i ⟨i.1, by omega⟩, constIndicator (system.const i 0))
     else (0, constIndicator (system.const i 0))
+
+
+-- system.vars row * β = [0 , 0,0 ] * β = 0 ≠ c = system.const row
 
 /- If `system.vars` is diagonal, then returns true if a row of `system.vars` is zero but that row of `system.const` is non-zero, meaning the system has no solutions. -/
 def noSolutionDiagonal (system : LinearSystem numVars numEqns α) : Prop :=
