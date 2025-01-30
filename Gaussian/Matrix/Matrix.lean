@@ -327,7 +327,6 @@ lemma left_mul_matrix_iff {m n: ℕ} (C : Matrix (Fin m) (Fin m) α) [Invertible
   . intro h
     exact congrArg (HMul.hMul C) h
 
-
 lemma solutions_preserved_under_transvection (system : LinearSystem numVars numEqns α)
     (P : Matrix (Fin numEqns) (Fin numEqns) α) [Invertible P]
     (Q : Matrix (Fin numVars) (Fin numVars) α) [Invertible Q]
@@ -337,8 +336,6 @@ lemma solutions_preserved_under_transvection (system : LinearSystem numVars numE
   rw [← Matrix.mul_assoc, Matrix.mul_assoc _ _ ⅟Q, mul_invOf_self', Matrix.mul_one, Matrix.mul_assoc P _ _]
   apply Iff.symm
   apply left_mul_matrix_iff
-
-
 
 end ExistenceOfSolutions
 
@@ -386,13 +383,13 @@ section Diagonalise
 /- From Mathlib Transvection 328. -/
 def zeroOutColList (row_index : Fin numEqns) : List (Matrix (Fin numEqns) (Fin numEqns) α) :=
   List.ofFn (fun x : Fin (numEqns) =>
-    if h : x = row_index then 1
+    if x = row_index then 1
     else addRowTransvection 1 row_index x)
 
 /- From Mathlib Transvection 334. -/
 def zeroOutRowList (col_index : Fin numVars) : List (Matrix (Fin numVars) (Fin numVars) α) :=
   List.ofFn (fun x : Fin (numVars) =>
-    if h : x = col_index then 1
+    if x = col_index then 1
     else addColTransvection 1 col_index x)
 
 /- Given a `system`, makes the entry at `system.vars index index` non-zero by trying column then row swaps-/
