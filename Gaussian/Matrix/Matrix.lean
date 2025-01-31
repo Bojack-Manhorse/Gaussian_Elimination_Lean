@@ -60,6 +60,10 @@ def swapRowMatrix (i j : Fin numEqns) : Matrix (Fin numEqns) (Fin numEqns) α :=
     + (Matrix.stdBasisMatrix i j 1 + Matrix.stdBasisMatrix j i 1)
 
 /- A `numVars × numVars` `P` such that for any matrix `A`, `A * P` represents swapping columns `i, j` of `A`. -/
+def swapColMatrix' (i j : Fin numVars) : Matrix (Fin numVars) (Fin numVars) α :=
+  1 + (- Matrix.stdBasisMatrix i i 1 + - Matrix.stdBasisMatrix j j 1)
+    + (Matrix.stdBasisMatrix i j 1 + Matrix.stdBasisMatrix j i 1)
+
 def swapColMatrix (i j : Fin numVars) : Matrix (Fin numVars) (Fin numVars) α :=
   1 + (- Matrix.stdBasisMatrix i i 1 + - Matrix.stdBasisMatrix j j 1)
     + (Matrix.stdBasisMatrix i j 1 + Matrix.stdBasisMatrix j i 1)
@@ -90,7 +94,7 @@ lemma addColTransvection_lemma (c : α) (i j : Fin numVars) (M : Matrix (Fin num
   simp [addColTransvection, Matrix.mul_add]
   aesop (add simp mul_comm) (add simp Matrix.StdBasisMatrix.mul_right_apply_same)
 
-lemma swapRowMatrix_Lemma (i j : Fin numEqns) (M : Matrix (Fin numEqns) (Fin numVars) α)
+lemma swapRowMatrix_lemma (i j : Fin numEqns) (M : Matrix (Fin numEqns) (Fin numVars) α)
     : (swapRowMatrix i j) * M =
       Matrix.of (fun x y =>
         if x = i then M j y
@@ -377,6 +381,8 @@ end NonDiagonalSolutions
 
 section Diagonalise
 
+section PivotFunctions
+
 /- From Mathlib Transvection 328. -/
 def zeroOutColList (row_index : Fin numEqns) : List (Matrix (Fin numEqns) (Fin numEqns) α) :=
   List.ofFn (fun x : Fin (numEqns) =>
@@ -389,38 +395,138 @@ def zeroOutRowList (col_index : Fin numVars) : List (Matrix (Fin numVars) (Fin n
     if x = col_index then 1
     else addColTransvection 1 col_index x)
 
-/- Given a `system`, makes the entry at `system.vars index index` non-zero by trying column then row swaps-/
-def makeNonZeroAtDiag (system : LinearSystem numVars numEqns α) (index : Fin numVars) : (Matrix (Fin numEqns) (Fin numEqns) α) × (Matrix (Fin numVars) (Fin numVars) α) :=
+/- Given a matrix `M`, makes the entry at `M index index` non-zero by trying column then row swaps-/
+def makeNonZeroAtDiag
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    : (Matrix (Fin numEqns) (Fin numEqns) α) × (Matrix (Fin numVars) (Fin numVars) α) :=
   if h1 : index ≥ numEqns then (1, 1)
-  else if h2 : system.vars ⟨index.1, by omega⟩ index ≠ 0 then (1, 1)
+  else if h2 : M ⟨index.1, by omega⟩ index ≠ 0 then (1, 1)
   else
     let column := List.ofFn
       (fun x : Fin numEqns =>
-        (system.vars x index, x))
+        (M x index, x))
     let column_filtered := column.filter (fun x => (index.1 < x.2.1) ∧ x.1 ≠ 0)
     if geq : column_filtered.length > 0
       then (swapRowMatrix (column_filtered[0]'(geq)).2 ⟨index.1, Nat.gt_of_not_le h1⟩, 1)
     else
       let index' : Fin numEqns := ⟨index.1, by omega⟩
-      let row := List.ofFn (fun x : Fin numVars => ((system.vars) index' x, x))
+      let row := List.ofFn (fun x : Fin numVars => (M index' x, x))
       let row_filtered := row.filter (fun x => (index.1 < x.2.1) ∧ x.1 ≠ 0)
       if geq : row_filtered.length > 0
         then (1, swapColMatrix (row_filtered[0]'(geq)).2 index)
       else (1, 1)
 
+/- Asserts that a matrix `M : Matrix (Fin numEqns) (Fin numVars) α` is diagonal outside the submatrix of indices greater than `index`. -/
 def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin numVars)
     : Prop :=
   ∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
 
-lemma diagonalOutsideInnerBlock_preserved_under_swapRowMatrix (system : LinearSystem numVars numEqns α) (index : Fin numVars) (i j : Fin numEqns) (h₁ : index.1 ≤ i.1) (h₂ : index.1 ≤ j.1) (sysdiag : diagonalOutsideInnerBlock system.vars index)
-    : diagonalOutsideInnerBlock ((swapRowMatrix i j) * system.vars) index := by
+end PivotFunctions
+
+section SwapLemmas
+
+lemma same_swap_identity_1 (i : Fin numEqns) : swapRowMatrix i i = (1 : Matrix (Fin numEqns) (Fin numEqns) α) := by
+  ext row col
+  simp [swapRowMatrix, Matrix.stdBasisMatrix]
+  aesop
+
+lemma same_swap_identity_2 (i : Fin numVars) : swapColMatrix i i = (1 : Matrix (Fin numVars) (Fin numVars) α) := by
+  ext row col
+  simp [swapColMatrix, Matrix.stdBasisMatrix]
+  aesop
+
+/- The next two lemmas assert that the result from applying `makeNonZeroAtDiag` will always be a swap row/column matrix. -/
+
+lemma only_swaps_or_indentity_from_makeNonZeroAtDiag_right
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (eqns : numEqns > 0)
+    : ∃ i j : Fin numEqns, (makeNonZeroAtDiag M index).1 = swapRowMatrix i j := by
+  rw [makeNonZeroAtDiag]
+  aesop <;> use ⟨0, eqns⟩ <;> use ⟨0, eqns⟩ <;> rw [same_swap_identity_1 ⟨0, eqns⟩]
+
+lemma only_swaps_or_indentity_from_makeNonZeroAtDiag_left
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (vars : numVars > 0)
+    : ∃ i j : Fin numVars, (makeNonZeroAtDiag M index).2 = swapColMatrix i j ∧ (index ≤ i ∧ index ≤ j) := by
+  rw [makeNonZeroAtDiag]
+  by_cases indeqns : numEqns ≤ index
+  . aesop
+    use index; use index; aesop (add simp same_swap_identity_2)
+  . simp only [indeqns, ↓reduceDIte]
+    aesop
 
 
-lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag (system : LinearSystem numVars numEqns α) (index : Fin numVars) (h : diagonalOutsideInnerBlock system.vars index)
-    : let pair := makeNonZeroAtDiag system index;
-      diagonalOutsideInnerBlock (pair.1 * system.vars * pair.2) index := by
+/- Proves that a applying a swap operation on rows both greater than equal two `index` preserves the `diagonalOutsideInnerBlock` property. -/
+lemma diagonalOutsideInnerBlock_preserved_under_swapRowMatrix
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (i j : Fin numEqns)
+    (h₁ : index.1 ≤ i.1) (h₂ : index.1 ≤ j.1)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    : diagonalOutsideInnerBlock ((swapRowMatrix i j) * M) index := by
+  intro row col roworcol rowneqcol
+  rw [swapRowMatrix_lemma, Matrix.of_apply]
+  by_cases roweqi : row = i
+  . simp only [roweqi, ↓reduceIte]
+    have : col < index := by omega
+    have : j.1 ≠ col.1 := by omega
+    aesop
+  . simp [roweqi]
+    by_cases roweqj : row = j
+    . simp [roweqj]
+      have : col < index := by omega
+      have : i.1 ≠ col.1 := by omega
+      aesop
+    . aesop
+
+lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (h₁ : numEqns > 0) (h₂ : numVars > 0)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    : let pair := makeNonZeroAtDiag M index;
+      diagonalOutsideInnerBlock (pair.1 * M * pair.2) index := by
   intro pair
-  sorry
+  aesop
+  have : _ := only_swaps_or_indentity_from_makeNonZeroAtDiag_right M index h₁
+  obtain ⟨i_row, j_row, h_mat⟩ := this
+  rw [h_mat]
+  refine diagonalOutsideInnerBlock_preserved_under_swapRowMatrix (M * (makeNonZeroAtDiag M index).2) index i_row j_row
+
+
+end SwapLemmas
+
+
+
+/- Same as above but with column operations. -/
+lemma diagonalOutsideInnerBlock_preserved_under_swapColMatrix
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (i j : Fin numVars)
+    (h₁ : index.1 ≤ i.1)
+    (h₂ : index.1 ≤ j.1)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    : diagonalOutsideInnerBlock (M * (swapColMatrix i j)) index := by
+  intro row col roworcol rowneqcol
+  rw [swapColMatrix_lemma, Matrix.of_apply]
+  by_cases coleqi : col = i
+  . simp only [coleqi, ↓reduceIte]
+    have : row < index.1 := by omega
+    have : j.1 ≠ row.1 := by omega
+    aesop
+  . simp [coleqi]
+    by_cases coleqj : col = j
+    . simp [coleqj]
+      have : row < index.1 := by omega
+      have : i.1 ≠ row.1 := by omega
+      aesop
+    . aesop
+
+
+
 
 
 
