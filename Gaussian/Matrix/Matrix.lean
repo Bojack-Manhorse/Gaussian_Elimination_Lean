@@ -688,12 +688,13 @@ lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix
   . simp only [List.foldr_cons]
     /- HOW DO I SHOW `i ∈ ls`??!!-/
 
-variable (φ : ℤ → Prop) (zero : φ 0) (ls : List ℤ) (h : ∀ a : ℤ, x ∈ ls → φ (a + z))
+variable (φ : ℤ → Prop) (zero : φ 0) (ls : List ℤ) (h : ∀ a : ℤ, x ∈ ls → φ a → φ (a + z))
 
 example : φ (List.foldl (· + ·) 0 ls) := by
   induction' ls with i sublist ih
+
   . aesop
-  . sorry /- How do I show `i ∈ ls`?-/
+  . simp --sorry /- How do I show `i ∈ ls`?-/
 
 
 
