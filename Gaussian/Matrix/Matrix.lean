@@ -70,10 +70,19 @@ def swapColMatrix (i j : Fin numVars) : Matrix (Fin numVars) (Fin numVars) α :=
   1 + (- Matrix.stdBasisMatrix i i 1 + - Matrix.stdBasisMatrix j j 1)
     + (Matrix.stdBasisMatrix i j 1 + Matrix.stdBasisMatrix j i 1)
 
+/- A type saying that a matrix is of the form in `addRowTransvection`. -/
+abbrev addRowType :=
+  {x : Matrix (Fin numEqns) (Fin numEqns) α // ∃ coef : α, ∃ i j : Fin numEqns, i ≠ j ∧ x = addRowTransvection coef i j}
+
+/- A type saying that a matrix is of the form in `addColTransvection`. -/
+abbrev addColType :=
+  {x : Matrix (Fin numVars) (Fin numVars) α // ∃ coef : α, ∃ i j : Fin numVars, i ≠ j ∧ x = addColTransvection coef i j}
+
 end Transvections
 
 section TransvectionLemmas
 
+/- Lemma that describes `addRowTransvection` in terms of `Matrix.of`. -/
 lemma addRowTransvection_lemma (c : α) (i j : Fin numEqns) (M : Matrix (Fin numEqns) (Fin numVars) α)
     : (addRowTransvection c i j) * M =
       Matrix.of (fun x y =>
@@ -85,6 +94,7 @@ lemma addRowTransvection_lemma (c : α) (i j : Fin numEqns) (M : Matrix (Fin num
   simp [addRowTransvection, Matrix.add_mul]
   aesop (add simp Matrix.StdBasisMatrix.mul_left_apply_same)
 
+/- Lemma that describes `addColTransvection` in terms of `Matrix.of`. -/
 lemma addColTransvection_lemma (c : α) (i j : Fin numVars) (M : Matrix (Fin numEqns) (Fin numVars) α)
     : M * (addColTransvection c i j) =
       Matrix.of (fun x y =>
@@ -96,6 +106,7 @@ lemma addColTransvection_lemma (c : α) (i j : Fin numVars) (M : Matrix (Fin num
   simp [addColTransvection, Matrix.mul_add]
   aesop (add simp mul_comm) (add simp Matrix.StdBasisMatrix.mul_right_apply_same)
 
+/- Lemma that describes `swapRowMatrix` in terms of `Matrix.of`. -/
 lemma swapRowMatrix_lemma (i j : Fin numEqns) (M : Matrix (Fin numEqns) (Fin numVars) α)
     : (swapRowMatrix i j) * M =
       Matrix.of (fun x y =>
@@ -104,7 +115,6 @@ lemma swapRowMatrix_lemma (i j : Fin numEqns) (M : Matrix (Fin numEqns) (Fin num
         else M x y) := by
   apply Matrix.ext
   intro row col
-
   simp only [swapRowMatrix, Matrix.add_mul, Matrix.mul_one, Matrix.one_mul, Matrix.neg_mul, Matrix.mul_neg, Matrix.add_apply, Matrix.neg_apply]
   apply Or.elim (eq_or_ne row i)
   . intro roweqi
@@ -119,6 +129,7 @@ lemma swapRowMatrix_lemma (i j : Fin numEqns) (M : Matrix (Fin numEqns) (Fin num
         add_neg_cancel, zero_add, Matrix.of_apply, ↓reduceIte]
   . aesop
 
+/- Lemma that describes `swapColMatrix` in terms of `Matrix.of`. -/
 lemma swapColMatrix_lemma (i j : Fin numVars) (M : Matrix (Fin numEqns) (Fin numVars) α)
     : M * (swapColMatrix i j) =
       Matrix.of (fun x y =>
@@ -330,6 +341,7 @@ lemma left_mul_matrix_iff {m n: ℕ} (C : Matrix (Fin m) (Fin m) α) [Invertible
   . intro h
     exact congrArg (HMul.hMul C) h
 
+/- After transforming a system by matrices `P` and `Q`, gives a way to go between solutions of the two systems. -/
 lemma solutions_preserved_under_transvection (system : LinearSystem numVars numEqns α)
     (P : Matrix (Fin numEqns) (Fin numEqns) α) [Invertible P]
     (Q : Matrix (Fin numVars) (Fin numVars) α) [Invertible Q]
@@ -344,6 +356,7 @@ end ExistenceOfSolutions
 
 section NonDiagonalSolutions
 
+/- Gives a solution to system via diagonalising `system.vars` to `new_system` and finding using `getSolDiagonal` on the `new_system`. -/
 def get_solution_from_diagonalise (system : LinearSystem numVars numEqns α)
     (P_row : Matrix (Fin numEqns) (Fin numEqns) α) [Invertible P_row]
     (P_col : Matrix (Fin numVars) (Fin numVars) α) [Invertible P_col]
@@ -351,6 +364,7 @@ def get_solution_from_diagonalise (system : LinearSystem numVars numEqns α)
   let new_system : LinearSystem numVars numEqns α := ⟨P_row * system.vars * P_col, P_row * system.const⟩
   P_col * getSolDiagonal new_system
 
+/- Verifies the above solution is correct. -/
 lemma check_solution (system : LinearSystem numVars numEqns α)
     (system_has_sol : hasSolution system)
     (P_row : Matrix (Fin numEqns) (Fin numEqns) α) [Invertible P_row]
@@ -386,18 +400,54 @@ section Diagonalise
 section PivotFunctions
 
 /- From Mathlib Transvection 328. -/
-def zeroOutColMatrix (row_index : Fin numEqns) : (Matrix (Fin numEqns) (Fin numEqns) α) :=
-  List.foldr (· * ·) 1
-  (List.ofFn (fun x : Fin (numEqns) =>
+def zeroOutColList (row_index : Fin numEqns) : List (Matrix (Fin numEqns) (Fin numEqns) α) :=
+  List.ofFn (fun x : Fin (numEqns) =>
     if x = row_index then 1
-    else addRowTransvection 1 row_index x))
+    else addRowTransvection 1 row_index x)
+
+/- From Mathlib Transvection 334. -/
+def zeroOutRowList (col_index : Fin numVars) : List (Matrix (Fin numVars) (Fin numVars) α) :=
+  List.ofFn (fun x : Fin (numVars) =>
+    if h : x = col_index then 1
+    else addColTransvection 1 col_index x)
+
+lemma id_is_row_transvection
+    (eqngtone : 1 < numEqns)
+    : 1 = addRowTransvection (0 : α) ⟨0, by omega⟩ ⟨1, eqngtone⟩ := by
+  simp [addRowTransvection]
+
+lemma id_is_col_transvection
+    (vargtone : 1 < numVars)
+    : 1 = addColTransvection (0 : α) ⟨0, by omega⟩ ⟨1, vargtone⟩ := by
+  simp [addColTransvection]
+
+lemma zeroOutColList_elements_are_transvections
+    (eqngtone : 1 < numEqns)
+    (row_index : Fin numEqns)
+    {M : Matrix (Fin numEqns) (Fin numEqns) α}
+    (in_list : M ∈ zeroOutColList row_index)
+    : ∃ coef : α, ∃ i j : Fin numEqns, M = addRowTransvection coef i j := by
+  simp [zeroOutColList, List.mem_ofFn] at in_list
+  obtain ⟨y, ih⟩ := in_list
+  aesop (add simp id_is_row_transvection)
+
+lemma zeroOutRowList_elements_are_transvections
+    (vargtone : 1 < numVars)
+    (col_index : Fin numVars)
+    {M : Matrix (Fin numVars) (Fin numVars) α}
+    (in_list : M ∈ zeroOutRowList col_index)
+    : ∃ coef : α, ∃ i j : Fin numVars, M = addColTransvection coef i j := by
+  simp [zeroOutRowList, List.mem_ofFn] at in_list
+  obtain ⟨y, ih⟩ := in_list
+  aesop (add simp id_is_col_transvection)
+
+/- From Mathlib Transvection 328. -/
+def zeroOutColMatrix (row_index : Fin numEqns) : (Matrix (Fin numEqns) (Fin numEqns) α) :=
+  List.foldr (· * ·) 1 (zeroOutColList row_index)
 
 /- From Mathlib Transvection 334. -/
 def zeroOutRowMatrix (col_index : Fin numVars) : (Matrix (Fin numVars) (Fin numVars) α) :=
-  List.foldl (· * ·) 1
-  (List.ofFn (fun x : Fin (numVars) =>
-    if x = col_index then 1
-    else addColTransvection 1 col_index x))
+  List.foldl (· * ·) 1 (zeroOutRowList col_index)
 
 
 /- Given a matrix `M`, makes the entry at `M index index` non-zero by trying column then row swaps-/
@@ -422,12 +472,7 @@ def makeNonZeroAtDiag
         then (1, swapColMatrix (row_filtered[0]'(geq)).2 index)
       else (1, 1)
 
-#eval List.foldr (· + ·) (-6) [1, 3 ,4]
-
-variable (a b c : α)
-
-#check List.foldr (· * ·) a [a, b, c]
-
+/- Zeroes out the entire row and column at `index` except for `M index index`. -/
 def pivotAtIndex
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (index : Fin numVars)
@@ -629,10 +674,6 @@ lemma diagonalOutsideInnerBlock_preserved_under_AddColTransvection
     aesop
   . aesop
 
-variable (i : Fin numEqns)
-
-#check zeroOutColMatrix i
-
 lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (index : Fin numVars)
@@ -641,8 +682,19 @@ lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix
     : diagonalOutsideInnerBlock ((zeroOutColMatrix ⟨index.1, by omega⟩) * M) index := by
   intro row col roworcol rowneqcol
   rw [zeroOutColMatrix]
-  let ls : List (Matrix (Fin numEqns) (Fin numEqns) α) := (List.ofFn fun x : Fin numEqns => if x = ⟨↑index, by omega⟩ then 1 else addRowTransvection 1 ⟨↑index, by omega⟩ x)
-  induction
+  set ls : List (Matrix (Fin numEqns) (Fin numEqns) α) := zeroOutColList ⟨↑index, by omega⟩ with eq
+  induction' ls with i sublist ih
+  . aesop
+  . simp only [List.foldr_cons]
+    /- HOW DO I SHOW `i ∈ ls`??!!-/
+
+variable (φ : ℤ → Prop) (zero : φ 0) (ls : List ℤ) (h : ∀ a : ℤ, x ∈ ls → φ (a + z))
+
+example : φ (List.foldl (· + ·) 0 ls) := by
+  induction' ls with i sublist ih
+  . aesop
+  . sorry /- How do I show `i ∈ ls`?-/
+
 
 
 
