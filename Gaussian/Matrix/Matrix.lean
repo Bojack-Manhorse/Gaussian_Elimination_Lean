@@ -103,7 +103,7 @@ lemma addColTransvection_lemma (c : α) (i j : Fin numVars) (M : Matrix (Fin num
       ) := by
   apply Matrix.ext
   intro row col
-  simp [addColTransvection, Matrix.mul_add]
+  simp only [addColTransvection, Matrix.mul_add, Matrix.mul_one, Matrix.add_apply, Matrix.of_apply]
   aesop (add simp mul_comm) (add simp Matrix.StdBasisMatrix.mul_right_apply_same)
 
 /- Lemma that describes `swapRowMatrix` in terms of `Matrix.of`. -/
@@ -405,11 +405,49 @@ def zeroOutColList (row_index : Fin numEqns) : List (Matrix (Fin numEqns) (Fin n
     if x = row_index then 1
     else addRowTransvection 1 row_index x)
 
+def zeroOutColList' (M : Matrix (Fin numEqns) (Fin numVars) α) (row_index : Fin numEqns) : List (Matrix (Fin numEqns) (Fin numEqns) α) :=
+  List.ofFn (fun x : Fin (numEqns) =>
+    if x = row_index then 1
+    else addRowTransvection 1 row_index x)
+
 /- From Mathlib Transvection 334. -/
 def zeroOutRowList (col_index : Fin numVars) : List (Matrix (Fin numVars) (Fin numVars) α) :=
   List.ofFn (fun x : Fin (numVars) =>
     if h : x = col_index then 1
     else addColTransvection 1 col_index x)
+
+def zeroOutColMatrix
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (row_index : Fin numEqns)
+    (rowltvar : row_index < numVars)
+    : Matrix (Fin numEqns) (Fin numEqns) α :=
+  1 + -(Matrix.stdBasisMatrix row_index row_index 1) + ∑ (row : Fin numEqns), Matrix.stdBasisMatrix row row_index (M row ⟨row_index.1, by omega⟩ / M row_index ⟨row_index, by omega⟩)
+
+
+  /-Matrix.of (fun x y =>
+    if h : (y ≠ row_index ∨ x = row_index ∨ numVars ≤ row_index) then (1 : Matrix (Fin numEqns) (Fin numEqns) α) x y
+    else M x ⟨row_index.1, by omega⟩ / M row_index ⟨row_index.1, by omega⟩)-/
+
+lemma zeroOutColMatrix_lemma
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (row_index : Fin numEqns)
+    (rowltvar : row_index.1 < numVars)
+    (non_zero : M row_index ⟨row_index.1, by omega⟩ ≠ 0)
+    : (zeroOutColMatrix M row_index rowltvar) * M =
+        Matrix.of (fun x y =>
+          if x = row_index ∧ y.1 ≠ row_index.1 then 0
+          else M x y) := by
+  apply Matrix.ext
+  intro row col
+  rw [zeroOutColMatrix]
+  simp [Matrix.of_apply]
+  by_cases h : (row = row_index ∧ ¬col.1 = row_index.1)
+  . simp [h]
+    rw [Matrix.mul_apply, Matrix.left_]
+
+
+
+
 
 lemma id_is_row_transvection
     (eqngtone : 1 < numEqns)
@@ -445,11 +483,35 @@ lemma zeroOutRowList_elements_are_transvections
 def zeroOutColMatrix (row_index : Fin numEqns) : (Matrix (Fin numEqns) (Fin numEqns) α) :=
   List.foldr (· * ·) 1 (zeroOutColList row_index)
 
-/-
-[A₁, ..., A_n]
 
-A_n * ... A_1 * M
--/
+def P (row_index : Fin numEqns) (ls : List (Matrix (Fin numEqns) (Fin numEqns) α)) : Prop :=
+  let len := ls.length
+  let last_element := ls[len - 1]
+  ∀ x y : Fin numEqns,
+    if x = row_index ∨ x > len then (last_element) x y = 1 x y
+    else
+      (last_element * M) x y
+
+lemma zeroOutColMatrix_as_func
+    (row_index : Fin numEqns)
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    : zeroOutColMatrix row_index * M =
+      Matrix.of (fun x y =>
+      if x = row_index then M x y
+      else M x y + M row_index y) := by
+  rw [zeroOutColMatrix]
+  --rcases row_index with ⟨num, fin⟩
+  --set ls := (zeroOutColList row_index) with eq --List.foldr (fun x1 x2 => (x1 * x2 : Matrix (Fin numEqns) (Fin numEqns) α)) 1 (zeroOutColList row_index) with eq
+  let new_list := List.scanr (fun x y => (x * y : Matrix (Fin numEqns) (Fin numEqns) α)) 1 (zeroOutColList row_index)
+  have pls : P new_list := by trivial
+  clear_value new_list
+  induction' new_list with i sublist ih
+  . sorry
+  .
+  --clear eq
+  --induction' ls with i sublist ih
+
+#check List.scanr
 
 /- From Mathlib Transvection 334. -/
 def zeroOutRowMatrix (col_index : Fin numVars) : (Matrix (Fin numVars) (Fin numVars) α) :=
@@ -691,13 +753,54 @@ lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix_aux
     (index : Fin numVars)
     (indlteqns : index.1 < numEqns)
     (Mdiag : diagonalOutsideInnerBlock M index)
-    (f : (Matrix (Fin numEqns) (Fin numEqns) α) → (Matrix (Fin numEqns) (Fin numEqns) α) → (Matrix (Fin numEqns) (Fin numEqns) α))
+    --(f : (Matrix (Fin numEqns) (Fin numEqns) α) → (Matrix (Fin numEqns) (Fin numEqns) α) → (Matrix (Fin numEqns) (Fin numEqns) α))
 
-    (hf : ∀ x y, φ (f x y))
-    : diagonalOutsideInnerBlock ((List.foldr f s (ls)) * M) index := by
+    --(hf : ∀ x y, φ (f x y))
+    : diagonalOutsideInnerBlock (List.foldr (fun x1 x2 => x1 * x2) s (ls) * M) index := by
   induction' ls with i sublist ih generalizing s
+  . aesop
+  . have : (List.foldr (fun x1 x2 => x1 * x2) s (i :: sublist) * M) = i * (List.foldr (fun x1 x2 => x1 * x2) s (sublist) * M) := sorry
+    have diagonalOutsideInnerBlock (List.foldr (fun x1 x2 => x1 * x2) s sublist * M) index := ih s h
+
+-- Frantisek's stuff
+def P : Matrix (Fin numEqns) (Fin numEqns) α → Prop := λ _ ↦ True
+def P' (index : Fin numVars) (ls : List (Matrix (Fin numEqns) (Fin numEqns) α)) :  Prop :=
+    ∀ M : (Matrix (Fin numEqns) (Fin numVars) α), ∀ row : Fin numEqns, ∀ col : Fin numVars, row.1 ≠ col.1 → ↑row < index.1 ∨ ↑col < ↑index → M row col = 0 → ((List.foldr (fun x y => (x * y : (Matrix (Fin numEqns) (Fin numEqns) α))) (1 : Matrix (Fin numEqns) (Fin numEqns) α) ls) * M) row col = 0
+--λ _ ↦ True
+
+--(Fin numEqns) → (Fin numVars) → Matrix (Fin numEqns) (Fin numEqns) α)
+
+lemma P_base : P (numEqns := numEqns) (α := α) 1 := by trivial
+lemma P'_base (index : Fin numVars) : P' index (α := α) (numEqns := numEqns) (zeroOutColList ⟨↑index, by sorry⟩) := by trivial
+
+lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix'
+    {M : Matrix (Fin numEqns) (Fin numVars) α}
+    {ls : List (Matrix (Fin numEqns) (Fin numEqns) α)}
+
+    (index : Fin numVars)
+    (hls : P' index ls)
+    (indlteqns : index.1 < numEqns)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    {row : Fin numEqns}
+    {col : Fin numVars}
+    {roworcol : ↑row < index.1 ∨ ↑col < ↑index}
+    {rowneqcol : ↑row ≠ col.1}
+    : (List.foldr (fun x1 x2 => (x1 * x2 : Matrix (Fin numEqns) (Fin numEqns) α)) 1 ls * M) row col = 0 := by
+  induction' ls with i sublist ih
   . sorry
-  .
+  . simp only [List.foldr_cons]
+    rw [Matrix.mul_assoc]
+    rw [← @ih]
+    . sorry
+    . unfold P' at *
+      intro M row col rowneqcol roworcol Mzero
+
+
+-- Frantisek's stuff
+
+Assume φ (A_n * .. A_1 * 1 * M)
+
+Show φ (A_n+1 * A_n * ... * A_1 * 1 * M)
 
 lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
