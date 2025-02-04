@@ -445,10 +445,15 @@ lemma zeroOutRowList_elements_are_transvections
 def zeroOutColMatrix (row_index : Fin numEqns) : (Matrix (Fin numEqns) (Fin numEqns) α) :=
   List.foldr (· * ·) 1 (zeroOutColList row_index)
 
+/-
+[A₁, ..., A_n]
+
+A_n * ... A_1 * M
+-/
+
 /- From Mathlib Transvection 334. -/
 def zeroOutRowMatrix (col_index : Fin numVars) : (Matrix (Fin numVars) (Fin numVars) α) :=
   List.foldl (· * ·) 1 (zeroOutRowList col_index)
-
 
 /- Given a matrix `M`, makes the entry at `M index index` non-zero by trying column then row swaps-/
 def makeNonZeroAtDiag
@@ -489,6 +494,8 @@ def pivotAtIndex
 def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin numVars)
     : Prop :=
   ∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
+
+#check Matrix.submatrix
 
 end PivotFunctions
 
@@ -674,35 +681,82 @@ lemma diagonalOutsideInnerBlock_preserved_under_AddColTransvection
     aesop
   . aesop
 
+variable (φ : (Matrix (Fin numEqns) (Fin numEqns) α) → Prop)
+
+private
+lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix_aux
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (s : Matrix (Fin numEqns) (Fin numEqns) α)
+    (h : s = 1)
+    (index : Fin numVars)
+    (indlteqns : index.1 < numEqns)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    (f : (Matrix (Fin numEqns) (Fin numEqns) α) → (Matrix (Fin numEqns) (Fin numEqns) α) → (Matrix (Fin numEqns) (Fin numEqns) α))
+
+    (hf : ∀ x y, φ (f x y))
+    : diagonalOutsideInnerBlock ((List.foldr f s (ls)) * M) index := by
+  induction' ls with i sublist ih generalizing s
+  . sorry
+  .
+
 lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (index : Fin numVars)
     (indlteqns : index.1 < numEqns)
     (Mdiag : diagonalOutsideInnerBlock M index)
     : diagonalOutsideInnerBlock ((zeroOutColMatrix ⟨index.1, by omega⟩) * M) index := by
-  intro row col roworcol rowneqcol
   rw [zeroOutColMatrix]
-  set ls : List (Matrix (Fin numEqns) (Fin numEqns) α) := zeroOutColList ⟨↑index, by omega⟩ with eq
-  induction' ls with i sublist ih
-  . aesop
-  . simp only [List.foldr_cons]
-    /- HOW DO I SHOW `i ∈ ls`??!!-/
+  apply diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix_aux
+  . rfl
+  . assumption
+  . assumption
 
-variable (φ : ℤ → Prop) (zero : φ 0) (ls : List ℤ) (h : ∀ a : ℤ, x ∈ ls → φ a → φ (a + z))
 
-example : φ (List.foldl (· + ·) 0 ls) := by
-  induction' ls with i sublist ih
-
-  . aesop
-  . simp --sorry /- How do I show `i ∈ ls`?-/
+  --set ls : List (Matrix (Fin numEqns) (Fin numEqns) α) := zeroOutColList ⟨↑index, by omega⟩ with eq
 
 
 
+lemma diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    : diagonalOutsideInnerBlock (M * (zeroOutRowMatrix index)) index := by
+  rw [zeroOutRowMatrix]
+  sorry
 
 end AddLemmas
 
+lemma diagonalOutsideInnerBlock_preserved_by_pivot
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (inlteqns : index.1 < numEqns)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    : diagonalOutsideInnerBlock (pivotAtIndex M index) index := by
+  rw [pivotAtIndex]
+  aesop (add simp diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag) (add simp diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix) (add simp diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix)
+  have : diagonalOutsideInnerBlock ((makeNonZeroAtDiag M index).1 * M * (makeNonZeroAtDiag M index).2) index := diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag M index Mdiag
+  set swapped := (makeNonZeroAtDiag M index).1 * M * (makeNonZeroAtDiag M index).2
+  have : diagonalOutsideInnerBlock (zeroOutColMatrix ⟨↑index, by omega⟩ * swapped) index :=
+    diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix swapped index inlteqns this
+  set rowOper := zeroOutColMatrix ⟨↑index, by omega⟩ * swapped
+  have : diagonalOutsideInnerBlock (rowOper * zeroOutRowMatrix index) index := by
+    exact diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix rowOper index (by assumption)
+  assumption
 
-
+lemma diagonalOutsideInnerBlock_increased_by_pivot
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (indlteqns : index.1.succ < numEqns)
+    (indltvars : index.1.succ < numVars)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    : (diagonalOutsideInnerBlock (pivotAtIndex M index) ⟨index.1 + 1, by omega⟩) := by
+    have pivotMdiag : diagonalOutsideInnerBlock (pivotAtIndex M index) index :=
+      diagonalOutsideInnerBlock_preserved_by_pivot M index (by omega) Mdiag
+    intro row col roworcol roweqcol
+    simp_all only [Nat.succ_eq_add_one, ne_eq]
+    simp_all only [Nat.succ_eq_add_one]
+    aesop
+    .
 
 
 
