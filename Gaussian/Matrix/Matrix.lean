@@ -1,5 +1,6 @@
 import Mathlib.LinearAlgebra.Matrix.Transvection
 import Mathlib.Data.Matrix.RowCol
+import Mathlib.Tactic.FieldSimp
 
 --set_option maxHeartbeats 1000000
 
@@ -232,31 +233,6 @@ example (a b : ℕ) (n : Fin a) (h : a = b) : (Fin.cast h n).1 = n.1 := rfl
 
 variable {system : LinearSystem numVars numEqns α}
 
-/- Verifies that if `noSolutionDiagonal system h` is true then there are no possible solutions. -/
-lemma diagonal_system_has_no_solutions (h : isDiagonal system.vars)
-    : noSolutionDiagonal system ↔ ¬ hasSolution system := by
-  apply Iff.intro
-  . intro no_sol
-    intro β
-    rw [noSolutionDiagonal] at no_sol
-    apply list_ofFn_exits at no_sol
-    obtain ⟨n, hn⟩ := no_sol
-    --have lenn : (List.ofFn (parityCheckFun system)).length = numEqns :=
-    let n_cast : Fin numEqns := Fin.cast (List.length_ofFn (parityCheckFun system)) n
-    have neq : n_cast.1 = n.1 := by rfl
-    have left_zero: (system.vars * β) n_cast 0 = 0 := by sorry
-    have right_ne_zero: (system.const) n_cast 0 ≠ 0 := by
-      simp [parityCheckFun, constIndicator] at hn
-      apply Or.elim (Nat.lt_or_ge n.1 numVars)
-      . intro nlt
-        simp [nlt] at hn
-        by_contra cont
-        rw [show]
-        simp [cont] at hn
-
-    sorry
-  . sorry
-
 /- Given a system `system` such that `system.vars` is in diagonal form and it has a solution, construct some `β : Matrix (Fin numVars) (Fin 1) α` that should be a solution (i.e. `system.vars * β == system.const`). -/
 def getSolDiagonal (system : LinearSystem numVars numEqns α ) : Matrix (Fin numVars) (Fin 1) α :=
   Matrix.of
@@ -321,6 +297,43 @@ lemma check_diagonal_sol (h1 : isDiagonal system.vars)
     . intro sysneq0
       field_simp
       rw [Fin.fin_one_eq_zero k] at *
+
+/- Verifies that if `noSolutionDiagonal system h` is true then there are no possible solutions. -/
+lemma diagonal_system_has_no_solutions (h : isDiagonal system.vars)
+    : noSolutionDiagonal system → ¬ hasSolution system := by
+  . intro no_sol
+    intro has_sol
+    rw [noSolutionDiagonal] at no_sol
+    simp [list_ofFn_exits] at no_sol
+    obtain ⟨n, hn⟩ := no_sol
+    obtain ⟨β, sol⟩ := has_sol
+    simp [isSol] at sol
+    simp [parityCheckFun] at hn
+    aesop
+    . aesop (add simp constIndicator) --(add simp diagMul_verify)
+      have diagmul : (system.vars * β) = diagMulEval system.vars β := diagMul_verify h
+      have : (system.vars * β) n 0 = 0 := by
+        rw [diagMul_verify]
+        simp [diagMulEval]
+        intro h
+        aesop
+        exact h
+      aesop
+    . aesop (add simp constIndicator)
+      have diagmul : (system.vars * β) = diagMulEval system.vars β := diagMul_verify h
+      have : (system.vars * β) n 0 = 0 := by
+        rw [diagmul, diagMulEval]
+        simp only [Matrix.of_apply, h_1, ↓reduceDIte]
+      aesop
+
+
+
+
+
+
+
+
+
 
 end DiagonalMatrices
 
@@ -416,39 +429,35 @@ def zeroOutRowList (col_index : Fin numVars) : List (Matrix (Fin numVars) (Fin n
     if h : x = col_index then 1
     else addColTransvection 1 col_index x)
 
-def zeroOutColMatrix
+def zeroOutColMatrix'
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (row_index : Fin numEqns)
     (rowltvar : row_index < numVars)
     : Matrix (Fin numEqns) (Fin numEqns) α :=
   1 + -(Matrix.stdBasisMatrix row_index row_index 1) + ∑ (row : Fin numEqns), Matrix.stdBasisMatrix row row_index (M row ⟨row_index.1, by omega⟩ / M row_index ⟨row_index, by omega⟩)
 
-
-  /-Matrix.of (fun x y =>
-    if h : (y ≠ row_index ∨ x = row_index ∨ numVars ≤ row_index) then (1 : Matrix (Fin numEqns) (Fin numEqns) α) x y
-    else M x ⟨row_index.1, by omega⟩ / M row_index ⟨row_index.1, by omega⟩)-/
-
 lemma zeroOutColMatrix_lemma
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (row_index : Fin numEqns)
     (rowltvar : row_index.1 < numVars)
     (non_zero : M row_index ⟨row_index.1, by omega⟩ ≠ 0)
-    : (zeroOutColMatrix M row_index rowltvar) * M =
+    : (zeroOutColMatrix' M row_index rowltvar) * M =
         Matrix.of (fun x y =>
           if x = row_index ∧ y.1 ≠ row_index.1 then 0
           else M x y) := by
+  rw [zeroOutColMatrix']
+  simp only [Matrix.add_mul, Matrix.one_mul, Matrix.neg_mul, ne_eq]
   apply Matrix.ext
   intro row col
-  rw [zeroOutColMatrix]
   simp [Matrix.of_apply]
   by_cases h : (row = row_index ∧ ¬col.1 = row_index.1)
   . simp [h]
-    rw [Matrix.mul_apply, Matrix.left_]
+    sorry
+    --rw [Matrix.mul_apply]
+  . simp [h]
+    sorry
 
-
-
-
-
+/- Two lemmas to show that the identity is technically a row and column transvection. -/
 lemma id_is_row_transvection
     (eqngtone : 1 < numEqns)
     : 1 = addRowTransvection (0 : α) ⟨0, by omega⟩ ⟨1, eqngtone⟩ := by
@@ -482,36 +491,6 @@ lemma zeroOutRowList_elements_are_transvections
 /- From Mathlib Transvection 328. -/
 def zeroOutColMatrix (row_index : Fin numEqns) : (Matrix (Fin numEqns) (Fin numEqns) α) :=
   List.foldr (· * ·) 1 (zeroOutColList row_index)
-
-
-def P (row_index : Fin numEqns) (ls : List (Matrix (Fin numEqns) (Fin numEqns) α)) : Prop :=
-  let len := ls.length
-  let last_element := ls[len - 1]
-  ∀ x y : Fin numEqns,
-    if x = row_index ∨ x > len then (last_element) x y = 1 x y
-    else
-      (last_element * M) x y
-
-lemma zeroOutColMatrix_as_func
-    (row_index : Fin numEqns)
-    (M : Matrix (Fin numEqns) (Fin numVars) α)
-    : zeroOutColMatrix row_index * M =
-      Matrix.of (fun x y =>
-      if x = row_index then M x y
-      else M x y + M row_index y) := by
-  rw [zeroOutColMatrix]
-  --rcases row_index with ⟨num, fin⟩
-  --set ls := (zeroOutColList row_index) with eq --List.foldr (fun x1 x2 => (x1 * x2 : Matrix (Fin numEqns) (Fin numEqns) α)) 1 (zeroOutColList row_index) with eq
-  let new_list := List.scanr (fun x y => (x * y : Matrix (Fin numEqns) (Fin numEqns) α)) 1 (zeroOutColList row_index)
-  have pls : P new_list := by trivial
-  clear_value new_list
-  induction' new_list with i sublist ih
-  . sorry
-  .
-  --clear eq
-  --induction' ls with i sublist ih
-
-#check List.scanr
 
 /- From Mathlib Transvection 334. -/
 def zeroOutRowMatrix (col_index : Fin numVars) : (Matrix (Fin numVars) (Fin numVars) α) :=
@@ -743,81 +722,19 @@ lemma diagonalOutsideInnerBlock_preserved_under_AddColTransvection
     aesop
   . aesop
 
-variable (φ : (Matrix (Fin numEqns) (Fin numEqns) α) → Prop)
-
-private
-lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix_aux
-    (M : Matrix (Fin numEqns) (Fin numVars) α)
-    (s : Matrix (Fin numEqns) (Fin numEqns) α)
-    (h : s = 1)
-    (index : Fin numVars)
-    (indlteqns : index.1 < numEqns)
-    (Mdiag : diagonalOutsideInnerBlock M index)
-    --(f : (Matrix (Fin numEqns) (Fin numEqns) α) → (Matrix (Fin numEqns) (Fin numEqns) α) → (Matrix (Fin numEqns) (Fin numEqns) α))
-
-    --(hf : ∀ x y, φ (f x y))
-    : diagonalOutsideInnerBlock (List.foldr (fun x1 x2 => x1 * x2) s (ls) * M) index := by
-  induction' ls with i sublist ih generalizing s
-  . aesop
-  . have : (List.foldr (fun x1 x2 => x1 * x2) s (i :: sublist) * M) = i * (List.foldr (fun x1 x2 => x1 * x2) s (sublist) * M) := sorry
-    have diagonalOutsideInnerBlock (List.foldr (fun x1 x2 => x1 * x2) s sublist * M) index := ih s h
-
--- Frantisek's stuff
-def P : Matrix (Fin numEqns) (Fin numEqns) α → Prop := λ _ ↦ True
-def P' (index : Fin numVars) (ls : List (Matrix (Fin numEqns) (Fin numEqns) α)) :  Prop :=
-    ∀ M : (Matrix (Fin numEqns) (Fin numVars) α), ∀ row : Fin numEqns, ∀ col : Fin numVars, row.1 ≠ col.1 → ↑row < index.1 ∨ ↑col < ↑index → M row col = 0 → ((List.foldr (fun x y => (x * y : (Matrix (Fin numEqns) (Fin numEqns) α))) (1 : Matrix (Fin numEqns) (Fin numEqns) α) ls) * M) row col = 0
---λ _ ↦ True
-
---(Fin numEqns) → (Fin numVars) → Matrix (Fin numEqns) (Fin numEqns) α)
-
-lemma P_base : P (numEqns := numEqns) (α := α) 1 := by trivial
-lemma P'_base (index : Fin numVars) : P' index (α := α) (numEqns := numEqns) (zeroOutColList ⟨↑index, by sorry⟩) := by trivial
-
-lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix'
-    {M : Matrix (Fin numEqns) (Fin numVars) α}
-    {ls : List (Matrix (Fin numEqns) (Fin numEqns) α)}
-
-    (index : Fin numVars)
-    (hls : P' index ls)
-    (indlteqns : index.1 < numEqns)
-    (Mdiag : diagonalOutsideInnerBlock M index)
-    {row : Fin numEqns}
-    {col : Fin numVars}
-    {roworcol : ↑row < index.1 ∨ ↑col < ↑index}
-    {rowneqcol : ↑row ≠ col.1}
-    : (List.foldr (fun x1 x2 => (x1 * x2 : Matrix (Fin numEqns) (Fin numEqns) α)) 1 ls * M) row col = 0 := by
-  induction' ls with i sublist ih
-  . sorry
-  . simp only [List.foldr_cons]
-    rw [Matrix.mul_assoc]
-    rw [← @ih]
-    . sorry
-    . unfold P' at *
-      intro M row col rowneqcol roworcol Mzero
-
-
--- Frantisek's stuff
-
-Assume φ (A_n * .. A_1 * 1 * M)
-
-Show φ (A_n+1 * A_n * ... * A_1 * 1 * M)
-
 lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (index : Fin numVars)
     (indlteqns : index.1 < numEqns)
     (Mdiag : diagonalOutsideInnerBlock M index)
-    : diagonalOutsideInnerBlock ((zeroOutColMatrix ⟨index.1, by omega⟩) * M) index := by
-  rw [zeroOutColMatrix]
-  apply diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix_aux
-  . rfl
-  . assumption
-  . assumption
-
-
-  --set ls : List (Matrix (Fin numEqns) (Fin numEqns) α) := zeroOutColList ⟨↑index, by omega⟩ with eq
-
-
+    (non_zero : M ⟨index.1, by omega⟩ index ≠ 0)
+    : diagonalOutsideInnerBlock
+      ((zeroOutColMatrix' M ⟨index.1,indlteqns⟩ index.2 ) * M) index := by
+  intro row col roworcol rowneqcol
+  rw [zeroOutColMatrix_lemma]
+  aesop
+  simp
+  assumption
 
 lemma diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
