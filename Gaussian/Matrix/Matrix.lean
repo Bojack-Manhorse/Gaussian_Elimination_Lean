@@ -483,6 +483,63 @@ def makeNonZeroAtDiag
         then (1, swapColMatrix (row_filtered[0]'(geq)).2 index)
       else (1, 1)
 
+lemma makeNonZeroAtDiag_fst_identity
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (col_zero : ∀ row : Fin numEqns, row.1 ≠ index.1 → M row index = 0 )
+    : (makeNonZeroAtDiag M index).1 = 1 := by
+  rw [makeNonZeroAtDiag]
+  split
+  . rfl
+  . split
+    . rfl
+    . set ls := (List.filter (fun x => decide (index.1 < ↑x.2.1) && !decide (x.1 = 0)) (List.ofFn fun x => (M x index, x))) with eq
+      have lszero : ls.length = 0 := by
+        aesop
+      simp [lszero]
+      have : ¬ 0 < ls.length := by aesop
+      aesop
+
+lemma list_of_Fn_get_index {β : Type}{f : Fin numEqns → β} {a : β} (a_in_list : a ∈ List.ofFn f)
+    : ∃ n : Fin numEqns, a = f n := by
+  rw [List.mem_ofFn] at a_in_list
+  simp_all only [Set.mem_range]
+  obtain ⟨w, h⟩ := a_in_list
+  subst h
+  simp_all only [exists_apply_eq_apply']
+
+lemma makeNonZeroAtDiag_snd_identity
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (indlteqn : index.1 < numEqns)
+    (row_zero : ∀ col : Fin numVars, col.1 ≠ index.1 → M ⟨index.1, by omega⟩ col = 0)
+  : (makeNonZeroAtDiag M index).2 = 1 := by
+  rw [makeNonZeroAtDiag]
+  split
+  . rfl
+  . split
+    . rfl
+    . set ls := (List.filter (fun x => decide (index.1 < ↑x.2.1) && !decide (x.1 = 0)) (List.ofFn fun x => (M x index, x))) with eq
+      by_cases len : 0 < ls.length
+      . simp [len]
+      . simp [len]
+        set ls_row := (List.filter (fun x => decide (index < x.2) && !decide (x.1 = 0))
+              (List.ofFn fun x => (M ⟨↑index, by omega⟩ x, x))) with eq
+        have ls_row_zero: ¬ 0 < ls_row.length := by
+          simp_all
+          refine List.filter_eq_nil_iff.mpr ?_
+          intro a
+          intro a_in_list
+          have : _ := list_of_Fn_get_index a_in_list
+          obtain ⟨n, n_prop⟩ := this
+          simp [n_prop]
+          intro ngtind
+          have : n.1 ≠ index.1 := by omega
+          aesop
+        simp [ls_row_zero]
+
+
+
 /- Zeroes out the entire row and column at `index` except for `M index index`. -/
 def pivotAtIndex
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -492,16 +549,17 @@ def pivotAtIndex
   let colSwap := (makeNonZeroAtDiag M index).2
   let swapped : Matrix (Fin numEqns) (Fin numVars) α := rowSwap * M * colSwap
   if h : numEqns ≤ index.1 then
-    swapped
+    M
   else
-    (zeroOutColMatrix' swapped ⟨index.1, by omega⟩ (index.2)) * swapped * (zeroOutRowMatrix' swapped index (by omega))
+    if Mzero : ∀ row : Fin numEqns, ∀ col : Fin numVars, (index.1 ≤ row.1 ∧ index.1 ≤ col.1 ∧ (row.1 = index.1 ∨ col.1 = index.1)) → M row col = 0
+      then M
+    else
+      (zeroOutColMatrix' swapped ⟨index.1, by omega⟩ (index.2)) * swapped * (zeroOutRowMatrix' swapped index (by omega))
 
 /- Asserts that a matrix `M : Matrix (Fin numEqns) (Fin numVars) α` is diagonal outside the submatrix of indices greater than `index`. -/
 def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin numVars)
     : Prop :=
   ∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
-
-#check Matrix.submatrix
 
 end PivotFunctions
 
@@ -641,6 +699,40 @@ lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag
     rw [h_col.1]
     aesop (add simp diagonalOutsideInnerBlock_preserved_under_swapColMatrix)
 
+
+/- If there exists some -/
+lemma zero_after_makeNonZeroAtDiag
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (indlteqn : index.1 < numEqns)
+    (Mdiag : diagonalOutsideInnerBlock M index)
+    (exists_non_zero : ¬ ∀ row : Fin numEqns, ∀ col : Fin numVars, (index.1 ≤ row.1 ∧ index.1 ≤ col.1 ∧ (row.1 = index.1 ∨ col.1 = index.1)) → M row col = 0)
+    :
+    ((makeNonZeroAtDiag M index).1 * M * (makeNonZeroAtDiag M index).2) ⟨index.1, by omega⟩ index ≠ 0 := by
+  push_neg at exists_non_zero
+  obtain ⟨row, col, ⟨⟨rowgeind, colgeind, roworcol⟩, Mrowcol⟩⟩ := exists_non_zero
+  rw [makeNonZeroAtDiag]
+  have indlteqn' : ¬ index.1 ≥ numEqns := by omega
+  simp only [ge_iff_le, indlteqn', ↓reduceDIte, Prod.mk_one_one, Bool.decide_and, decide_not, gt_iff_lt, Fin.val_fin_lt, dite_eq_ite, ite_not]
+  by_cases Mzero : M ⟨index.1, by omega⟩ index = 0
+  . simp only [Mzero, ↓reduceIte]
+    have roworcol' : col.1 = index.1 ∨ (col.1 ≠ index.1 ∧ row.1 = index.1) := by aesop (add simp eq_or_ne)
+    apply Or.elim roworcol'
+    . intro coleqind
+      set ls := (List.filter (fun x => decide (↑index < x.2.1) && !decide (x.1 = 0)) (List.ofFn fun x => (M x index, x))) with eq
+      have : (M ⟨index.1, by omega⟩ col, row) ∈ (List.ofFn fun x => (M x index, x)) := by
+        aesop
+      have : (M row index, row) ∈ ls := by
+        refine List.mem_filter.mpr ?_
+        apply And.intro
+        . aesop
+        . simp
+
+      have : 0 < ls.length := by sorry
+      sorry
+    sorry
+  . simp [Mzero]
+
 /- The format we want a matrix to be after applying `makeNonZeroAtDiag`-/
 def swapped_form
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -773,28 +865,35 @@ lemma diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix_general
   . intro rowltind
     aesop
 
-lemma values_unchanged_by_zeroOutRowMatrix
+/- Proves that `M` and `(zeroOutColMatrix' M col_index) * M` have the same values on the `col_index` row. -/
+lemma values_unchanged_by_zeroOutColMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (col_index : Fin numVars)
     (collteqn : col_index < numEqns)
     : ∀ col : Fin numVars, ((zeroOutColMatrix' M ⟨col_index.1, collteqn⟩ col_index.2) * M) ⟨col_index.1, collteqn⟩ col = M ⟨col_index.1, collteqn⟩ col := by
   intro col
-  simp only [zeroOutColMatrix_lemma, Matrix.of_apply]
+  simp only [zeroOutColMatrix_lemma, Matrix.of_apply, ne_eq, true_and, ite_not, ite_eq_left_iff, sub_eq_self, mul_eq_zero, div_eq_zero_iff,
+    or_self]
   aesop
+  sorry
 
+/- Uses the previous theorem to show `zeroOutRowMatrix' _ col_index` is the same for `M` and `(zeroOutColMatrix' M col_index) * M`. -/
 lemma same_zeroOutRowMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (col_index : Fin numVars)
     (collteqn : col_index < numEqns)
     : zeroOutRowMatrix' M col_index collteqn = zeroOutRowMatrix' ((zeroOutColMatrix' M ⟨col_index.1, by omega⟩ (col_index.2)) * M) col_index collteqn := by
-  --apply Matrix.ext
-  --intro row col
   simp only [zeroOutRowMatrix', Matrix.add_apply, Matrix.neg_apply, id_eq, Int.reduceNeg, add_right_inj, neg_inj]
-  sorry
-  --aesop (add simp zeroOutRowMatrix')
+  apply Fintype.sum_congr
+  intro col
+  aesop (add simp values_unchanged_by_zeroOutColMatrix)
 
-
-
+/-lemma pivot_matrix_of
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (col_index : Fin numVars)
+    (collteqn : col_index < numEqns)
+    : (zeroOutColMatrix' M ⟨col_index.1, collteqns⟩ col_index.2) * M * (zeroOutRowMatrix' M col_index collteqn) =
+      Matrix.of (fun x y => )-/
 
 end AddLemmas
 
@@ -806,27 +905,17 @@ lemma diagonalOutsideInnerBlock_preserved_by_pivot
     (Mdiag : diagonalOutsideInnerBlock M index)
     : diagonalOutsideInnerBlock (pivotAtIndex M index) index := by
   rw [pivotAtIndex]
-
   aesop (add simp diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag)
   set swapped := (makeNonZeroAtDiag M index).1 * M * (makeNonZeroAtDiag M index).2
-
   have swapped_diag : diagonalOutsideInnerBlock swapped index := by
     aesop (add simp diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag)
-  --simp [zeroOutColMatrix_lemma]
   have zero_swapped_diag : diagonalOutsideInnerBlock ((zeroOutColMatrix' swapped ⟨index.1, inlteqns⟩ (index.2)) * swapped) index := by
     aesop (add simp diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix)
-  intro row col roworcol rowneqcol
-
-
-  /-aesop (add simp diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag) (add simp diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix) (add simp diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix)
-  have : diagonalOutsideInnerBlock ((makeNonZeroAtDiag M index).1 * M * (makeNonZeroAtDiag M index).2) index := diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag M index Mdiag
-  set swapped := (makeNonZeroAtDiag M index).1 * M * (makeNonZeroAtDiag M index).2
-  have : diagonalOutsideInnerBlock (zeroOutColMatrix ⟨↑index, by omega⟩ * swapped) index :=
-    diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix swapped index inlteqns this
-  set rowOper := zeroOutColMatrix ⟨↑index, by omega⟩ * swapped
-  have : diagonalOutsideInnerBlock (rowOper * zeroOutRowMatrix index) index := by
-    exact diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix rowOper index (by assumption)
-  assumption-/
+  rw [same_zeroOutRowMatrix]
+  apply diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix
+  . assumption
+  . apply diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix
+    assumption
 
 lemma diagonalOutsideInnerBlock_increased_by_pivot
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -835,13 +924,23 @@ lemma diagonalOutsideInnerBlock_increased_by_pivot
     (indltvars : index.1.succ < numVars)
     (Mdiag : diagonalOutsideInnerBlock M index)
     : (diagonalOutsideInnerBlock (pivotAtIndex M index) ⟨index.1 + 1, by omega⟩) := by
-    have pivotMdiag : diagonalOutsideInnerBlock (pivotAtIndex M index) index :=
-      diagonalOutsideInnerBlock_preserved_by_pivot M index (by omega) Mdiag
-    intro row col roworcol roweqcol
-    simp_all only [Nat.succ_eq_add_one, ne_eq]
-    simp_all only [Nat.succ_eq_add_one]
-    aesop
-    .
+  have pivotMdiag : diagonalOutsideInnerBlock (pivotAtIndex M index) index :=
+    diagonalOutsideInnerBlock_preserved_by_pivot M index (by omega) Mdiag
+  intro row col roworcol roweqcol
+  simp_all only [Nat.succ_eq_add_one, ne_eq]
+  simp_all only [Nat.succ_eq_add_one]
+  apply Or.elim roworcol
+  . intro rowltind
+    simp [pivotAtIndex]
+    by_cases h : numEqns ≤ index
+    . simp [h]
+      have : row.1 < index := by omega
+      aesop
+    . simp [h]
+      set N := (makeNonZeroAtDiag M index).1 * M * (makeNonZeroAtDiag M index).2
+      by_cases Nzero : N ⟨index.1, by omega⟩ index = 0
+      .
+
 
 
 
