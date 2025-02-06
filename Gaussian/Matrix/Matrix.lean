@@ -699,6 +699,13 @@ lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag
     rw [h_col.1]
     aesop (add simp diagonalOutsideInnerBlock_preserved_under_swapColMatrix)
 
+lemma list_with_index_fin {β : Type} {f : Fin numEqns → β} {a : β × (Fin numEqns)}
+    (a_in_list : a ∈ List.ofFn (fun x : Fin numEqns => (f x, x)))
+    : a = (f a.2, a.2) := by
+  obtain ⟨x, h⟩ := (List.mem_ofFn _ a).mp a_in_list
+  apply Prod.fst_eq_iff.mp
+  subst h
+  simp_all only
 
 /- If there exists some -/
 lemma zero_after_makeNonZeroAtDiag
@@ -713,25 +720,53 @@ lemma zero_after_makeNonZeroAtDiag
   obtain ⟨row, col, ⟨⟨rowgeind, colgeind, roworcol⟩, Mrowcol⟩⟩ := exists_non_zero
   rw [makeNonZeroAtDiag]
   have indlteqn' : ¬ index.1 ≥ numEqns := by omega
-  simp only [ge_iff_le, indlteqn', ↓reduceDIte, Prod.mk_one_one, Bool.decide_and, decide_not, gt_iff_lt, Fin.val_fin_lt, dite_eq_ite, ite_not]
+  simp? [indlteqn']
   by_cases Mzero : M ⟨index.1, by omega⟩ index = 0
-  . simp only [Mzero, ↓reduceIte]
-    have roworcol' : col.1 = index.1 ∨ (col.1 ≠ index.1 ∧ row.1 = index.1) := by aesop (add simp eq_or_ne)
-    apply Or.elim roworcol'
-    . intro coleqind
-      set ls := (List.filter (fun x => decide (↑index < x.2.1) && !decide (x.1 = 0)) (List.ofFn fun x => (M x index, x))) with eq
-      have : (M ⟨index.1, by omega⟩ col, row) ∈ (List.ofFn fun x => (M x index, x)) := by
-        aesop
-      have : (M row index, row) ∈ ls := by
-        refine List.mem_filter.mpr ?_
-        apply And.intro
-        . aesop
-        . simp
-
-      have : 0 < ls.length := by sorry
-      sorry
-    sorry
   . simp [Mzero]
+    have colorrow : col.1 = index.1 ∨ row.1 = index.1 := by aesop
+    apply Or.elim colorrow
+    . intro coleqind
+      have : row.1 ≠ index.1 := by
+        by_contra roweqind;
+        have : M row col ≠ 0 := by assumption
+        have : row = ⟨index.1, by omega⟩ := by aesop
+        have : col = ⟨index.1, by omega⟩ := by aesop
+        have : M row col = 0 := by aesop
+        aesop
+      set ls := (List.filter (fun x => decide (↑index < x.2.1) && !decide (x.1 = 0)) (List.ofFn fun x => (M x index, x)))
+      have coleqind_fin: col = ⟨index.1, by omega⟩ := by aesop
+      --rw [coleqind_fin] at Mrowcol
+      have : (M row ⟨index.1, by omega⟩, row) ∈ (List.ofFn fun x => (M x index, x)) := list_ofFn_mem rfl
+      have : row.1 > index.1 := by omega
+      have : (M row ⟨index.1, by omega⟩, row) ∈ ls := by aesop
+      have ls_len : ls.length > 0 := List.length_pos_of_mem this
+      simp [ls_len]
+      simp [swapRowMatrix_lemma, Matrix.of_apply]
+      set ls'' := (List.filter (fun x => decide (index.1 < ↑x.2) && !decide (x.1 = 0)) (List.ofFn fun x => (M x index, x)))
+      set swap_col := ls''[0] with eq
+      have swap_in_filter : swap_col ∈ ls'' := by aesop
+      let f : α × (Fin numEqns) → Bool := fun x => decide (index.1 < ↑x.2) && !decide (x.1 = 0)
+      have : f swap_col := List.of_mem_filter swap_in_filter
+      have : swap_col.1 ≠ 0 := by aesop
+      have : swap_col.2 ≠ ⟨index.1, by omega⟩ := by aesop
+      have swapgtind : ⟨index.1, by omega⟩ ≠ swap_col.2  := by aesop
+      simp [swapgtind]
+      rw [← ne_eq]
+      set g : (Fin numEqns) → α := fun x => M x index with eq
+      have swap_in_list : swap_col ∈ (List.ofFn fun x => (g x, x)) := by exact List.mem_of_mem_filter swap_in_filter
+      have swap_col_value : swap_col = (g swap_col.2 , swap_col.2) := by apply list_with_index_fin swap_in_list
+      simp [g] at swap_col_value
+      have : swap_col.1 = M swap_col.2 index := Prod.fst_eq_iff.mpr swap_col_value
+      rw [← this]
+      assumption
+    . intro roweqind
+      sorry
+  . simp [Mzero]
+
+
+
+
+
 
 /- The format we want a matrix to be after applying `makeNonZeroAtDiag`-/
 def swapped_form
