@@ -400,41 +400,72 @@ section Diagonalise
 
 section PivotFunctions
 
+def non_zero_indicator (x : α) : α := if x = 0 then 0 else 1
+
 def zeroOutColMatrix'
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (row_index : Fin numEqns)
     (rowltvar : row_index < numVars)
     : Matrix (Fin numEqns) (Fin numEqns) α :=
-  1 + (Matrix.stdBasisMatrix row_index row_index 1)
+  1 + (Matrix.stdBasisMatrix row_index row_index (non_zero_indicator (M row_index ⟨row_index.1, by omega⟩)))
     + -∑ (row : Fin numEqns), Matrix.stdBasisMatrix row row_index (M row ⟨row_index.1, by omega⟩ / M row_index ⟨row_index, by omega⟩)
+
+lemma zeroOutColMatrix_lemma_when_zero
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (row_index : Fin numEqns)
+    (rowltvar : row_index < numVars)
+    (is_zero : M row_index ⟨row_index.1, by omega⟩ = 0)
+    : zeroOutColMatrix' M row_index rowltvar = 1 := by
+  simp [zeroOutColMatrix', non_zero_indicator, is_zero]
+
+example (x y : Fin numEqns) (not_eq : x ≠ y) : (1 : Matrix (Fin numEqns) (Fin numEqns) α) x y = 0 := by exact Matrix.one_apply_ne' (id (Ne.symm not_eq))
 
 lemma zeroOutColMatrix_lemma'
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (row_index : Fin numEqns)
     (rowltvar : row_index.1 < numVars)
+    --(non_zero : M row_index ⟨row_index.1, by omega⟩ ≠ 0)
     : (zeroOutColMatrix' M row_index rowltvar) =
         Matrix.of (fun x y =>
           if x ≠ row_index ∧ y.1 = row_index.1 then
-            - (M row ⟨row_index.1, by omega⟩ / M row_index ⟨row_index, by omega⟩)
+            - (M x ⟨row_index.1, by omega⟩ / M row_index ⟨row_index, by omega⟩)
           else (1 : Matrix (Fin numEqns) (Fin numEqns) α) x y) := by
   rw [zeroOutColMatrix']
   apply Matrix.ext
   intro x y
-  by_cases y_row : y = row_index
-  . by_cases x_row : x = row_index
-    . simp [y_row, x_row, add_assoc]
-      rw [Matrix.sum_apply row_index row_index Finset.univ _]
-      subst y_row
-      sorry
-    . simp [y_row, x_row]
-      subst y_row
-
-      sorry
-  . sorry
-
-
-example (a b : Prop) (h : ¬ (a ∧ b)) : ¬ a ∨ ¬ b := by apply?
-
+  by_cases non_zero : M row_index ⟨row_index.1, by omega⟩ = 0
+  . simp [non_zero, non_zero_indicator]
+    aesop
+    apply Matrix.one_apply_ne'
+    have : y.1 ≠ x.1 := by omega
+    aesop
+  . by_cases y_row : y = row_index
+    . by_cases x_row : x = row_index
+      . simp [y_row, x_row, add_assoc, non_zero_indicator, non_zero]
+        rw [Matrix.sum_apply row_index row_index Finset.univ _]
+        subst y_row
+        have almost_all_zero : ∀ c : Fin numEqns, c ≠ y → Matrix.stdBasisMatrix c y (M c ⟨y.1, by omega⟩ / M y ⟨y.1, by omega⟩) y y = 0 := by
+          intro c c_neq_y
+          aesop
+        rw [Fintype.sum_eq_single y almost_all_zero, Matrix.StdBasisMatrix.apply_same]
+        field_simp
+      . simp [y_row, x_row]
+        rw [Matrix.sum_apply x row_index Finset.univ _]
+        subst y_row
+        rw [Matrix.StdBasisMatrix.apply_of_ne _ _ _ _ _ (by aesop), zero_add, neg_inj]
+        have almost_all_zero : ∀ row : Fin numEqns, row ≠ x → Matrix.stdBasisMatrix row y (M row ⟨y.1, by omega⟩ / M y ⟨y.1, by omega⟩) x y = 0 := by
+          intro row row_neq_x
+          aesop
+        rw [Fintype.sum_eq_single x almost_all_zero, Matrix.StdBasisMatrix.apply_same]
+    . have y_neq : y.1 ≠ row_index.1 := by omega
+      aesop
+      rw [Matrix.StdBasisMatrix.apply_of_ne _ _ _ _ _ (by aesop)]
+      simp [Matrix.sum_apply, add_assoc]
+      have : ∀ c : Fin numEqns, Matrix.stdBasisMatrix c row_index (M c ⟨row_index.1, by omega⟩ / M row_index ⟨row_index.1, by omega⟩) x y = 0 := by
+        intro c
+        rw [Matrix.StdBasisMatrix.apply_of_ne]
+        aesop
+      aesop
 
 lemma zeroOutColMatrix_lemma
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -636,9 +667,14 @@ lemma pivotAtIndex_eq_pivotAtIndexTuple
   aesop (add simp Matrix.mul_assoc)
 
 /- Asserts that a matrix `M : Matrix (Fin numEqns) (Fin numVars) α` is diagonal outside the submatrix of indices greater than `index`. -/
-def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin numVars)
+def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin numVars )
     : Prop :=
   ∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
+
+/-
+lemma diagonalOutsideInnerBlock_implies_diagonal
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+-/
 
 end PivotFunctions
 
@@ -873,15 +909,6 @@ lemma zero_after_makeNonZeroAtDiag
         sorry
         /- Repeat same argument as above-/
   . simp [Mzero]
-
-/- The format we want a matrix to be after applying `makeNonZeroAtDiag`-/
-def swapped_form
-    (M : Matrix (Fin numEqns) (Fin numVars) α)
-    (index : Fin numVars)
-    : Prop :=
-  if h : index ≥ numEqns then true
-  else
-    M ⟨index, by omega⟩ index ≠ 0 ∨ (∀ row : Fin numEqns, ∀ col : Fin numVars, row.1 = index ∨ col.1 = index → M row col = 0)
 
 end SwapLemmas
 
@@ -1177,18 +1204,48 @@ def n_thDiagonaliseMatrix
     : Matrix (Fin numEqns) (Fin numVars) α :=
   Fin.foldl n.1 (fun Mat num => pivotAtIndex M ⟨num.1, by omega⟩) M
 
+lemma foldl_outside_succ
+    (β : Type)
+    (b : β)
+    {n : ℕ}
+    (f : β → ℕ → β)
+    : Fin.foldl n (fun x y => f x y) b = b := sorry
+
+
 lemma n_th_diagonal_after_n_thDiagonaliseMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (n : Fin numVars)
+    (n_lt_eqns : n.1 < numEqns)
     : diagonalOutsideInnerBlock (n_thDiagonaliseMatrix M n) n := by
   rw [n_thDiagonaliseMatrix]
-  sorry
+  rcases n with ⟨n, hn⟩
+  induction' n with n ih --generalizing M
+  . aesop (add simp diagonalOutsideInnerBlock)
+  . have fold_apply: Fin.foldl (n + 1) (fun Mat num => pivotAtIndex M ⟨num, by omega⟩) M  = pivotAtIndex (Fin.foldl (n) (fun Mat num => pivotAtIndex M ⟨num, by omega⟩) M) ⟨n, by omega⟩ := by
+      --rw [Fin.foldl_succ_last]
+      sorry
+    rw [fold_apply]
+    specialize ih (by omega) (Nat.lt_of_succ_lt n_lt_eqns)
+    apply diagonalOutsideInnerBlock_increased_by_pivot
+    . exact n_lt_eqns
+    . aesop
+    . exact ih
+
+
 
 lemma is_diagonal_after_diagonaliseMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (var_pos : numVars > 0)
+    (eqn_pos : numEqns > 0)
     : isDiagonal (diagonaliseMatrix M) := by
   rw [diagonaliseMatrix]
-  sorry
+  let min_eqn_var := min numEqns numVars
+  have : diagonalOutsideInnerBlock (n_thDiagonaliseMatrix M ⟨min_eqn_var - 1, by omega ⟩) ⟨min_eqn_var - 1, by  omega⟩ := by
+    apply n_th_diagonal_after_n_thDiagonaliseMatrix
+    aesop
+    omega
+
+  intro row col rowneqcol
 
 /- A vector contaning all the elements to the left of M in `diagonaliseMatrix M`, specifically all the row operations. -/
 def diagonalizeLeft
@@ -1196,17 +1253,26 @@ def diagonalizeLeft
     : Vector (Matrix (Fin numEqns) (Fin numEqns) α) (2 * numVars) :=
   sorry
 
+lemma diagonalizeLeft_invertible
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    : [Invertible (Array.foldr (· * ·) (1 : Matrix (Fin numEqns) (Fin numEqns) α) (diagonalizeLeft M).toArray)] := sorry
+
 /- A vector containing all the elements to the right of M in `diagonaliseMatrix M`, so all the column operations. -/
 def diagonalizeRight
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     : Vector (Matrix (Fin numVars) (Fin numVars) α) (2 * numVars) :=
   sorry
 
+
+
 lemma verify_diagonalize_left_right
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     : diagonaliseMatrix M = (Array.foldr (· * ·) (1 : Matrix (Fin numEqns) (Fin numEqns) α) (diagonalizeLeft M).toArray) * M * (Array.foldl (· * ·) (1 : Matrix (Fin numVars) (Fin numVars) α) (diagonalizeRight M).toArray) := sorry
 
-
+def get_solution_of_system
+    (system : LinearSystem numEqns numVars α)
+    : Matrix (Fin numVars) (Fin 1) α :=
+  get_solution_from_diagonalise system
 
 end ApplyDiagonalise
 
