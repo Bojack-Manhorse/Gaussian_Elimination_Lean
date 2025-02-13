@@ -464,16 +464,16 @@ lemma zeroOutColMatrix_lemma'
         aesop
       aesop
 
-example (row col : Fin numEqns) (h : row ≠ col): (1 : Matrix (Fin numEqns) (Fin numEqns) α) row col = 0 := by exact Matrix.one_apply_ne' (id (Ne.symm h))
-
-lemma zeroOutColMatrix_lemma
+lemma zeroOutColMatrix_lemma''
+    {n : ℕ}
+    (A : Matrix (Fin numEqns) (Fin n) α)
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (row_index : Fin numEqns)
     (rowltvar : row_index.1 < numVars)
-    : (zeroOutColMatrix' M row_index rowltvar) * M =
+    : (zeroOutColMatrix' M row_index rowltvar) * A =
         Matrix.of (fun x y =>
-          if x ≠ row_index then M x y - ((M row_index y) * (M x ⟨row_index.1, by omega⟩ / M row_index ⟨row_index.1, by omega⟩))
-          else M x y) := by
+          if x ≠ row_index then A x y - ((A row_index y) * (M x ⟨row_index.1, by omega⟩ / M row_index ⟨row_index.1, by omega⟩))
+          else A x y) := by
   rw [zeroOutColMatrix_lemma']
   apply Matrix.ext
   intro row col
@@ -499,11 +499,15 @@ lemma zeroOutColMatrix_lemma
       apply Matrix.one_apply_ne'
       assumption
 
-example (p : Prop) [Decidable p] (h : ¬ p) (f g : Fin numEqns → α) : ∑ x : Fin numEqns, (if p then f x else g x) = ∑ x : Fin numEqns, f x := by apply?
-
-example (f : Fin numEqns → α) (n m : Fin numEqns) (not_eq : n ≠ m) (f_eval : ∀ x : Fin numEqns, x ≠ n ∧ x ≠ m → f x = 0) : ∑ x : Fin numEqns, f x = f n + f m := by
-  exact Fintype.sum_eq_add n m not_eq f_eval
-
+lemma zeroOutColMatrix_lemma
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (row_index : Fin numEqns)
+    (rowltvar : row_index.1 < numVars)
+    : (zeroOutColMatrix' M row_index rowltvar) * M =
+        Matrix.of (fun x y =>
+          if x ≠ row_index then M x y - ((M row_index y) * (M x ⟨row_index.1, by omega⟩ / M row_index ⟨row_index.1, by omega⟩))
+          else M x y) := by
+  aesop (add simp zeroOutColMatrix_lemma'')
 
 lemma zeroOutColMatrix_lemma_when_non_zero
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -520,18 +524,113 @@ def zeroOutRowMatrix'
     (col_index : Fin numVars)
     (collteqn : col_index < numEqns)
     : Matrix (Fin numVars) (Fin numVars) α :=
-  1 + (Matrix.stdBasisMatrix col_index col_index 1)
-    + -∑ (col : Fin numVars), Matrix.stdBasisMatrix col col_index (M ⟨col_index.1, by omega⟩ col / M ⟨col_index, by omega⟩ col_index)
+  1 + (Matrix.stdBasisMatrix col_index col_index (non_zero_indicator (M ⟨col_index.1, by omega⟩ col_index)))
+    + -∑ col : Fin numVars, Matrix.stdBasisMatrix col_index col (M ⟨col_index.1, by omega⟩ col / M ⟨col_index, by omega⟩ col_index)
+
+lemma zeroOutRowMatrix_lemma_when_zero
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (col_index : Fin numVars)
+    (colltvar : col_index < numEqns)
+    (is_zero : M ⟨col_index.1, by omega⟩ col_index = 0)
+    : zeroOutRowMatrix' M col_index colltvar = 1 := by
+  simp [zeroOutRowMatrix', non_zero_indicator, is_zero, constIndicator]
+
+lemma zeroOutRowMatrix_lemma'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (col_index : Fin numVars)
+    (collteqn : col_index < numEqns)
+    : (zeroOutRowMatrix' M col_index collteqn) =
+        Matrix.of (fun x y =>
+          if y ≠ col_index ∧ x.1 = col_index.1 then
+            - (M ⟨col_index.1, by omega⟩ y / M ⟨col_index, by omega⟩ col_index)
+          else (1 : Matrix (Fin numVars) (Fin numVars) α) x y) := by
+  rw [zeroOutRowMatrix']
+  apply Matrix.ext
+  intro x y
+  by_cases non_zero : M ⟨col_index.1, by omega⟩ col_index = 0
+  . simp [non_zero, non_zero_indicator, constIndicator]
+    aesop
+    apply Matrix.one_apply_ne'
+    have : y.1 ≠ x.1 := by omega
+    aesop
+  . by_cases y_row : y = col_index
+    . by_cases x_row : x = col_index
+      . simp [y_row, x_row, add_assoc, non_zero_indicator, non_zero]
+        rw [Matrix.sum_apply col_index col_index Finset.univ _]
+        subst y_row
+        have almost_all_zero : ∀ c : Fin numVars, c ≠ y → Matrix.stdBasisMatrix y c (M ⟨y.1, by omega⟩ c / M ⟨y.1, by omega⟩ y) y y = 0 := by
+          aesop
+        rw [Fintype.sum_eq_single y almost_all_zero, Matrix.StdBasisMatrix.apply_same]
+        field_simp
+      . simp [constIndicator, non_zero, x_row, y_row]
+        rw [Matrix.StdBasisMatrix.apply_of_ne _ _ _ _ _ (by aesop)]
+        field_simp
+        rw [Matrix.sum_apply]
+        rw [Finset.sum_eq_zero]
+        aesop (add simp Matrix.StdBasisMatrix.apply_of_ne)
+        rw [Matrix.StdBasisMatrix.apply_of_ne]
+        aesop
+    . simp [y_row, non_zero_indicator, non_zero]
+      by_cases x_row : x = col_index
+      . aesop (add simp Matrix.one_apply_ne')
+        rw [Matrix.StdBasisMatrix.apply_of_ne _ _ _ _ _ (by aesop)]
+        simp [Matrix.sum_apply]
+        rw [Fintype.sum_eq_single y]
+        aesop
+        aesop
+      . have x_col : x.1 ≠ col_index.1 := by omega
+        simp [x_row, x_col, add_assoc, Matrix.sum_apply]
+        rw [Matrix.StdBasisMatrix.apply_of_ne]
+        . simp
+          apply Finset.sum_eq_zero
+          intro x x_in
+          rw [Matrix.StdBasisMatrix.apply_of_ne]
+          aesop
+        . aesop
+
+lemma zeroOutRowMatrix_lemma''
+    {n : ℕ}
+    (A : Matrix (Fin n) (Fin numVars) α)
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (col_index : Fin numVars)
+    (collteqn : col_index < numEqns)
+    : (A * (zeroOutRowMatrix' M col_index collteqn)) =
+        Matrix.of (fun x y =>
+          if y ≠ col_index then A x y - ((A x col_index) * (M ⟨col_index.1, by omega⟩ y / M ⟨col_index.1, by omega⟩ col_index))
+          else A x y
+          ) := by
+  rw [zeroOutRowMatrix_lemma']
+  apply Matrix.ext
+  intro row col
+  rw [Matrix.mul_apply]
+  by_cases col_eq : col = col_index
+  . simp [col_eq]
+    rw [Fintype.sum_eq_single col_index]
+    . simp
+    . intro x x_neq
+      rw [Matrix.one_apply_ne x_neq]
+      ring
+  . simp [col_eq]
+    rw [Fintype.sum_eq_add col col_index]
+    . have col_neq_fin : col.1 ≠ col_index.1 := by omega
+      simp [col_neq_fin]
+      ring
+    . assumption
+    . intro x
+      rintro ⟨x_row, x_col_index⟩
+      have x_col_index_fin : x.1 ≠ col_index.1 := by omega
+      simp [x_col_index_fin]
+      aesop
 
 lemma zeroOutRowMatrix_lemma
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (col_index : Fin numVars)
     (collteqn : col_index < numEqns)
-    : (M * zeroOutRowMatrix' M col_index collteqn) =
+    : (M * (zeroOutRowMatrix' M col_index collteqn)) =
         Matrix.of (fun x y =>
           if y ≠ col_index then M x y - ((M x col_index) * (M ⟨col_index.1, by omega⟩ y / M ⟨col_index.1, by omega⟩ col_index))
           else M x y) := by
-  sorry
+  aesop (add simp zeroOutRowMatrix_lemma'')
 
 lemma zeroOutRowMatrix_lemma_when_non_zero
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -548,19 +647,168 @@ def zeroOutColMatrixInverse
     (row_index : Fin numEqns)
     (rowltvar : row_index < numVars)
     : Matrix (Fin numEqns) (Fin numEqns) α :=
-  1 + -(Matrix.stdBasisMatrix row_index row_index 1)
+  1 + -(Matrix.stdBasisMatrix row_index row_index (non_zero_indicator (M row_index ⟨row_index.1, by omega⟩)))
     + ∑ (row : Fin numEqns), Matrix.stdBasisMatrix row row_index (M row ⟨row_index.1, by omega⟩ / M row_index ⟨row_index, by omega⟩)
+
+/- This lemma's proof is identical to `zeroOutColMatrix_lemma'`, is there a better way?-/
+lemma zeroOutColMatrixInverse_lemma
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (row_index : Fin numEqns)
+    (rowltvar : row_index < numVars)
+    : (zeroOutColMatrixInverse M row_index rowltvar) =
+        Matrix.of (fun x y =>
+          if x ≠ row_index ∧ y.1 = row_index.1 then
+            (M x ⟨row_index.1, by omega⟩ / M row_index ⟨row_index, by omega⟩)
+          else (1 : Matrix (Fin numEqns) (Fin numEqns) α) x y) := by
+  rw [zeroOutColMatrixInverse]
+  apply Matrix.ext
+  intro x y
+  by_cases non_zero : M row_index ⟨row_index.1, by omega⟩ = 0
+  . simp [non_zero, non_zero_indicator]
+    aesop
+    apply Matrix.one_apply_ne'
+    have : y.1 ≠ x.1 := by omega
+    aesop
+  . by_cases y_row : y = row_index
+    . by_cases x_row : x = row_index
+      . simp [y_row, x_row, add_assoc, non_zero_indicator, non_zero]
+        rw [Matrix.sum_apply row_index row_index Finset.univ _]
+        subst y_row
+        have almost_all_zero : ∀ c : Fin numEqns, c ≠ y → Matrix.stdBasisMatrix c y (M c ⟨y.1, by omega⟩ / M y ⟨y.1, by omega⟩) y y = 0 := by
+          intro c c_neq_y
+          aesop
+        rw [Fintype.sum_eq_single y almost_all_zero, Matrix.StdBasisMatrix.apply_same]
+        field_simp
+      . simp [y_row, x_row]
+        rw [Matrix.sum_apply x row_index Finset.univ _]
+        subst y_row
+        rw [Matrix.StdBasisMatrix.apply_of_ne _ _ _ _ _ (by aesop)]
+        have almost_all_zero : ∀ row : Fin numEqns, row ≠ x → Matrix.stdBasisMatrix row y (M row ⟨y.1, by omega⟩ / M y ⟨y.1, by omega⟩) x y = 0 := by
+          intro row row_neq_x
+          aesop
+        rw [Fintype.sum_eq_single x almost_all_zero, Matrix.StdBasisMatrix.apply_same]
+        ring
+    . have y_neq : y.1 ≠ row_index.1 := by omega
+      aesop
+      rw [Matrix.StdBasisMatrix.apply_of_ne _ _ _ _ _ (by aesop)]
+      simp [Matrix.sum_apply, add_assoc]
+      have : ∀ c : Fin numEqns, Matrix.stdBasisMatrix c row_index (M c ⟨row_index.1, by omega⟩ / M row_index ⟨row_index.1, by omega⟩) x y = 0 := by
+        intro c
+        rw [Matrix.StdBasisMatrix.apply_of_ne]
+        aesop
+      aesop
 
 lemma zeroOutColMatrixInverse_is_inverse
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (row_index : Fin numEqns)
     (rowltvar : row_index < numVars)
     : (zeroOutColMatrix' M row_index rowltvar) * (zeroOutColMatrixInverse M row_index rowltvar) = 1 := by
-  rw [zeroOutColMatrix', zeroOutColMatrixInverse]
-  simp [Matrix.mul_add, mul_one, mul_neg, non_zero_indicator]
-  ring
-  sorry
+  rw [zeroOutColMatrix_lemma'']
+  simp [zeroOutColMatrixInverse_lemma]
+  apply Matrix.ext
+  intro row col
+  simp [Matrix.of_apply]
+  aesop
+  . have : row ≠ col := by omega
+    have : row ≠ row_index := by omega
+    simp [Matrix.one_apply_ne this, Matrix.one_apply, Eq.symm h]
+    have : row_index = col := by omega
+    aesop
+  . apply Or.inl
+    apply Matrix.one_apply_ne
+    aesop
 
+instance zeroOutColMatrix'_is_invertible
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (row_index : Fin numEqns)
+    (rowltvar : row_index < numVars)
+    : Invertible (zeroOutColMatrix' M row_index rowltvar) := by
+  apply Matrix.invertibleOfRightInverse _ (zeroOutColMatrixInverse M row_index rowltvar)
+  apply zeroOutColMatrixInverse_is_inverse
+
+def zeroOutRowMatrixInverse
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (col_index : Fin numVars)
+    (collteqn : col_index < numEqns)
+    : Matrix (Fin numVars) (Fin numVars) α :=
+  1 - (Matrix.stdBasisMatrix col_index col_index (non_zero_indicator (M ⟨col_index.1, by omega⟩ col_index)))
+    + ∑ col : Fin numVars, Matrix.stdBasisMatrix col_index col (M ⟨col_index.1, by omega⟩ col / M ⟨col_index, by omega⟩ col_index)
+
+lemma zeroOutRowMatrixInverse_lemma
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (col_index : Fin numVars)
+    (collteqn : col_index < numEqns)
+    : (zeroOutRowMatrixInverse M col_index collteqn) =
+        Matrix.of (fun x y =>
+          if y ≠ col_index ∧ x.1 = col_index.1 then
+            (M ⟨col_index.1, by omega⟩ y / M ⟨col_index, by omega⟩ col_index)
+          else (1 : Matrix (Fin numVars) (Fin numVars) α) x y) := by
+  rw [zeroOutRowMatrixInverse]
+  apply Matrix.ext
+  intro x y
+  by_cases non_zero : M ⟨col_index.1, by omega⟩ col_index = 0
+  . simp [non_zero, non_zero_indicator, constIndicator]
+    aesop
+    apply Matrix.one_apply_ne'
+    have : y.1 ≠ x.1 := by omega
+    aesop
+  . by_cases y_row : y = col_index
+    . by_cases x_row : x = col_index
+      . simp [y_row, x_row, add_assoc, non_zero_indicator, non_zero]
+        rw [Matrix.sum_apply col_index col_index Finset.univ _]
+        subst y_row
+        have almost_all_zero : ∀ c : Fin numVars, c ≠ y → Matrix.stdBasisMatrix y c (M ⟨y.1, by omega⟩ c / M ⟨y.1, by omega⟩ y) y y = 0 := by
+          aesop
+        rw [Fintype.sum_eq_single y almost_all_zero, Matrix.StdBasisMatrix.apply_same]
+        field_simp
+      . simp [constIndicator, non_zero, x_row, y_row]
+        rw [Matrix.StdBasisMatrix.apply_of_ne _ _ _ _ _ (by aesop)]
+        field_simp
+        rw [Matrix.sum_apply]
+        rw [Finset.sum_eq_zero]
+        aesop (add simp Matrix.StdBasisMatrix.apply_of_ne)
+        rw [Matrix.StdBasisMatrix.apply_of_ne]
+        aesop
+    . simp [y_row, non_zero_indicator, non_zero]
+      by_cases x_row : x = col_index
+      . aesop (add simp Matrix.one_apply_ne')
+        rw [Matrix.StdBasisMatrix.apply_of_ne _ _ _ _ _ (by aesop)]
+        simp [Matrix.sum_apply]
+        rw [Fintype.sum_eq_single y]
+        aesop
+        aesop
+      . have x_col : x.1 ≠ col_index.1 := by omega
+        simp [x_row, x_col, add_assoc, Matrix.sum_apply]
+        rw [Matrix.StdBasisMatrix.apply_of_ne]
+        . simp
+          apply Finset.sum_eq_zero
+          intro x x_in
+          rw [Matrix.StdBasisMatrix.apply_of_ne]
+          aesop
+        . aesop
+
+lemma zeroOutRowMatrixInverse_is_inverse
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (col_index : Fin numVars)
+    (collteqn : col_index < numEqns)
+    : (zeroOutRowMatrixInverse M col_index collteqn) * (zeroOutRowMatrix' M col_index collteqn) = 1 := by
+  simp [zeroOutRowMatrix_lemma'', zeroOutRowMatrixInverse_lemma]
+  apply Matrix.ext
+  intro row col
+  simp [Matrix.of_apply]
+  aesop
+  . have : row = col_index := by omega
+    aesop (add simp Matrix.one_apply)
+  . apply Or.inl
+    aesop (add simp Matrix.one_apply)
+
+instance zeroOutRowMatrix'_is_invertible
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (col_index : Fin numVars)
+    (collteqn : col_index < numEqns)
+    : Invertible (zeroOutRowMatrix' M col_index collteqn) := by
+  apply Matrix.invertibleOfLeftInverse _ (zeroOutRowMatrixInverse M col_index collteqn)
+  apply zeroOutRowMatrixInverse_is_inverse
 
 /- Two lemmas to show that the identity is technically a row and column transvection. -/
 lemma id_is_row_transvection
@@ -1052,10 +1300,15 @@ lemma same_zeroOutRowMatrix
     (col_index : Fin numVars)
     (collteqn : col_index < numEqns)
     : zeroOutRowMatrix' M col_index collteqn = zeroOutRowMatrix' ((zeroOutColMatrix' M ⟨col_index.1, by omega⟩ (col_index.2)) * M) col_index collteqn := by
-  simp only [zeroOutRowMatrix', Matrix.add_apply, Matrix.neg_apply, id_eq, Int.reduceNeg, add_right_inj, neg_inj]
-  apply Fintype.sum_congr
-  intro col
-  aesop (add simp values_unchanged_by_zeroOutColMatrix)
+  have M_eq : M ⟨col_index.1, by omega⟩ col_index = ((zeroOutColMatrix' M ⟨col_index.1, by omega⟩ col_index.2) * M) ⟨col_index.1, by omega⟩ col_index := by
+    aesop (add simp values_unchanged_by_zeroOutColMatrix)
+  by_cases non_zero : M ⟨col_index.1, by omega⟩ col_index = 0
+  . aesop (add simp zeroOutRowMatrix_lemma_when_zero)
+  . have non_zero' : ((zeroOutColMatrix' M ⟨col_index.1, by omega⟩ col_index.2) * M) ⟨col_index.1, by omega⟩ col_index ≠ 0 := by aesop
+    simp [zeroOutRowMatrix', constIndicator, non_zero, add_assoc, non_zero']
+    apply Fintype.sum_congr
+    intro col
+    aesop (add simp values_unchanged_by_zeroOutColMatrix)
 
 lemma values_unchanged_by_zeroOutRowMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -1073,9 +1326,7 @@ lemma same_zeroOutColMatrix
   have M_eq : M row_index ⟨row_index.1, by omega⟩ = (M * zeroOutRowMatrix' M ⟨↑row_index, by omega⟩ (row_index.2)) row_index ⟨↑row_index, by omega⟩ := by
     aesop (add simp values_unchanged_by_zeroOutRowMatrix)
   by_cases non_zero : M row_index ⟨row_index.1, by omega⟩ = 0
-  . simp [non_zero, add_assoc, zeroOutColMatrix_lemma_when_zero]
-    rw [zeroOutColMatrix_lemma_when_zero]
-    aesop
+  . aesop (add simp zeroOutColMatrix_lemma_when_zero)
   . have non_zero': (M * zeroOutRowMatrix' M ⟨↑row_index, by omega⟩ (row_index.2)) row_index ⟨↑row_index, by omega⟩ ≠ 0 := by aesop
     simp [non_zero, non_zero', zeroOutColMatrix', non_zero_indicator, add_assoc]
     apply Fintype.sum_congr
