@@ -418,13 +418,10 @@ lemma zeroOutColMatrix_lemma_when_zero
     : zeroOutColMatrix' M row_index rowltvar = 1 := by
   simp [zeroOutColMatrix', non_zero_indicator, is_zero]
 
-example (x y : Fin numEqns) (not_eq : x ≠ y) : (1 : Matrix (Fin numEqns) (Fin numEqns) α) x y = 0 := by exact Matrix.one_apply_ne' (id (Ne.symm not_eq))
-
 lemma zeroOutColMatrix_lemma'
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (row_index : Fin numEqns)
     (rowltvar : row_index.1 < numVars)
-    --(non_zero : M row_index ⟨row_index.1, by omega⟩ ≠ 0)
     : (zeroOutColMatrix' M row_index rowltvar) =
         Matrix.of (fun x y =>
           if x ≠ row_index ∧ y.1 = row_index.1 then
@@ -467,16 +464,45 @@ lemma zeroOutColMatrix_lemma'
         aesop
       aesop
 
+example (row col : Fin numEqns) (h : row ≠ col): (1 : Matrix (Fin numEqns) (Fin numEqns) α) row col = 0 := by exact Matrix.one_apply_ne' (id (Ne.symm h))
+
 lemma zeroOutColMatrix_lemma
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (row_index : Fin numEqns)
     (rowltvar : row_index.1 < numVars)
-    --(non_zero : M row_index ⟨row_index.1, by omega⟩ ≠ 0)
     : (zeroOutColMatrix' M row_index rowltvar) * M =
         Matrix.of (fun x y =>
           if x ≠ row_index then M x y - ((M row_index y) * (M x ⟨row_index.1, by omega⟩ / M row_index ⟨row_index.1, by omega⟩))
-          else M x y) := by sorry
+          else M x y) := by
+  rw [zeroOutColMatrix_lemma']
+  apply Matrix.ext
+  intro row col
+  rw [Matrix.mul_apply]
+  by_cases row_eq : row = row_index
+  . simp [row_eq]
+    rw [Fintype.sum_eq_single row_index]
+    . simp
+    . intro x x_neq
+      rw [Matrix.one_apply_ne' x_neq]
+      ring
+  . simp [row_eq]
+    rw [Fintype.sum_eq_add row row_index]
+    . have row_neq_fin : row.1 ≠ row_index.1 := by omega
+      simp [row_neq_fin]
+      ring
+    . exact row_eq
+    . intro x
+      rintro ⟨x_row, x_row_index⟩
+      have x_row_index_fin : x.1 ≠ row_index.1 := by omega
+      simp [x_row_index_fin]
+      apply Or.inl
+      apply Matrix.one_apply_ne'
+      assumption
 
+example (p : Prop) [Decidable p] (h : ¬ p) (f g : Fin numEqns → α) : ∑ x : Fin numEqns, (if p then f x else g x) = ∑ x : Fin numEqns, f x := by apply?
+
+example (f : Fin numEqns → α) (n m : Fin numEqns) (not_eq : n ≠ m) (f_eval : ∀ x : Fin numEqns, x ≠ n ∧ x ≠ m → f x = 0) : ∑ x : Fin numEqns, f x = f n + f m := by
+  exact Fintype.sum_eq_add n m not_eq f_eval
 
 
 lemma zeroOutColMatrix_lemma_when_non_zero
@@ -531,8 +557,9 @@ lemma zeroOutColMatrixInverse_is_inverse
     (rowltvar : row_index < numVars)
     : (zeroOutColMatrix' M row_index rowltvar) * (zeroOutColMatrixInverse M row_index rowltvar) = 1 := by
   rw [zeroOutColMatrix', zeroOutColMatrixInverse]
-  simp [Matrix.mul_add, mul_one, mul_neg]
+  simp [Matrix.mul_add, mul_one, mul_neg, non_zero_indicator]
   ring
+  sorry
 
 
 /- Two lemmas to show that the identity is technically a row and column transvection. -/
@@ -1043,10 +1070,16 @@ lemma same_zeroOutColMatrix
     (row_index : Fin numEqns)
     (rowlteqn : row_index < numVars)
     : zeroOutColMatrix' M row_index (by omega) = zeroOutColMatrix' (M * (zeroOutRowMatrix' M ⟨row_index.1, by omega⟩ (row_index.2))) row_index (by omega) := by
-  simp [zeroOutColMatrix']
-  apply Fintype.sum_congr
-  intro col
-  aesop (add simp values_unchanged_by_zeroOutRowMatrix)
+  have M_eq : M row_index ⟨row_index.1, by omega⟩ = (M * zeroOutRowMatrix' M ⟨↑row_index, by omega⟩ (row_index.2)) row_index ⟨↑row_index, by omega⟩ := by
+    aesop (add simp values_unchanged_by_zeroOutRowMatrix)
+  by_cases non_zero : M row_index ⟨row_index.1, by omega⟩ = 0
+  . simp [non_zero, add_assoc, zeroOutColMatrix_lemma_when_zero]
+    rw [zeroOutColMatrix_lemma_when_zero]
+    aesop
+  . have non_zero': (M * zeroOutRowMatrix' M ⟨↑row_index, by omega⟩ (row_index.2)) row_index ⟨↑row_index, by omega⟩ ≠ 0 := by aesop
+    simp [non_zero, non_zero', zeroOutColMatrix', non_zero_indicator, add_assoc]
+    apply Fintype.sum_congr
+    aesop (add simp values_unchanged_by_zeroOutRowMatrix)
 
 end AddLemmas
 
@@ -1246,6 +1279,7 @@ lemma is_diagonal_after_diagonaliseMatrix
     omega
 
   intro row col rowneqcol
+  sorry
 
 /- A vector contaning all the elements to the left of M in `diagonaliseMatrix M`, specifically all the row operations. -/
 def diagonalizeLeft
