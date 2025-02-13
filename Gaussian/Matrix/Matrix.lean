@@ -130,8 +130,26 @@ lemma swapRowMatrix_lemma (i j : Fin numEqns) (M : Matrix (Fin numEqns) (Fin num
         add_neg_cancel, zero_add, Matrix.of_apply, ↓reduceIte]
   . aesop
 
+lemma swapRowMatrix_self_inverse
+    (i j : Fin numEqns)
+    : (swapRowMatrix i j) * (swapRowMatrix i j) = (1 : Matrix (Fin numEqns) (Fin numEqns) α) := by
+  apply Matrix.ext
+  intro row col
+  simp [swapRowMatrix_lemma]
+  rw [swapRowMatrix]
+  aesop (add simp Matrix.stdBasisMatrix) (add simp Matrix.one_apply)
+
+instance swapRowMatrix_is_invertible
+    (i j : Fin numEqns)
+    : Invertible (swapRowMatrix i j : Matrix (Fin numEqns) (Fin numEqns) α) := by
+  apply Matrix.invertibleOfRightInverse (swapRowMatrix i j) (swapRowMatrix i j)
+  aesop (add simp swapRowMatrix_self_inverse)
+
 /- Lemma that describes `swapColMatrix` in terms of `Matrix.of`. -/
-lemma swapColMatrix_lemma (i j : Fin numVars) (M : Matrix (Fin numEqns) (Fin numVars) α)
+lemma swapColMatrix_lemma
+    {n : ℕ}
+    (i j : Fin numVars)
+    (M : Matrix (Fin n) (Fin numVars) α)
     : M * (swapColMatrix i j) =
       Matrix.of (fun x y =>
         if y = i then M x j
@@ -150,6 +168,21 @@ lemma swapColMatrix_lemma (i j : Fin numVars) (M : Matrix (Fin numEqns) (Fin num
     . intro ineqj
       simp [ineqj]
   . aesop
+
+lemma swapColMatrix_self_inverse
+    (i j : Fin numVars)
+    : (swapColMatrix i j) * (swapColMatrix i j) = (1 : Matrix (Fin numVars) (Fin numVars) α) := by
+  apply Matrix.ext
+  intro row col
+  simp [swapColMatrix_lemma]
+  rw [swapColMatrix]
+  aesop (add simp Matrix.stdBasisMatrix) (add simp Matrix.one_apply)
+
+instance swapColMatrix_is_invertible
+    (i j : Fin numVars)
+    : Invertible (swapColMatrix i j : Matrix (Fin numVars) (Fin numVars) α) := by
+  apply Matrix.invertibleOfRightInverse (swapColMatrix i j) (swapColMatrix i j)
+  aesop (add simp swapColMatrix_self_inverse)
 
 end TransvectionLemmas
 
@@ -843,6 +876,19 @@ def makeNonZeroAtDiag
         then (1, swapColMatrix (row_filtered[0]'(geq)).2 index)
       else (1, 1)
 
+lemma makeNonZeroAtDiag_self_inverse
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    : let tuple := makeNonZeroAtDiag M index
+      tuple.1 * tuple.1 * M * tuple.2 * tuple.2 = M := by
+  simp [makeNonZeroAtDiag]
+  aesop (add simp swapColMatrix_self_inverse) (add simp swapRowMatrix_self_inverse)
+  set num := (List.filter (fun x => decide (index < x.2) && !decide (x.1 = 0)) (List.ofFn fun x => (M ⟨index.1, by omega⟩ x, x)))[0].2
+  rw [Matrix.mul_assoc M _ _]
+  rw [swapColMatrix_self_inverse]
+  aesop
+
+
 lemma makeNonZeroAtDiag_fst_identity
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (index : Fin numVars)
@@ -898,8 +944,6 @@ lemma makeNonZeroAtDiag_snd_identity
           aesop
         simp [ls_row_zero]
 
-
-
 /- Zeroes out the entire row and column at `index` except for `M index index`. -/
 def pivotAtIndex
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -940,6 +984,56 @@ lemma pivotAtIndex_eq_pivotAtIndexTuple
       (pivotAtIndexTuple M index).1.1 * (pivotAtIndexTuple M index).1.2 * M *(pivotAtIndexTuple M index).2.1 * (pivotAtIndexTuple M index).2.2 := by
   simp [pivotAtIndex, pivotAtIndexTuple]
   aesop (add simp Matrix.mul_assoc)
+
+def pivotAtIndexInverseTuple
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    : ((Matrix (Fin numEqns) (Fin numEqns) α) × (Matrix (Fin numEqns) (Fin numEqns) α)) × ((Matrix (Fin numVars) (Fin numVars) α) × (Matrix (Fin numVars) (Fin numVars) α)) :=
+  let rowSwap := (makeNonZeroAtDiag M index).1
+  let colSwap := (makeNonZeroAtDiag M index).2
+  let swapped : Matrix (Fin numEqns) (Fin numVars) α := rowSwap * M * colSwap
+  let one_eqn := (1 : Matrix (Fin numEqns) (Fin numEqns) α)
+  let one_var := (1 : Matrix (Fin numVars) (Fin numVars) α)
+  if h : numEqns ≤ index.1 then
+    ⟨⟨one_eqn, one_eqn⟩, ⟨one_var, one_var⟩⟩
+  else
+    if Mzero : ∀ row : Fin numEqns, ∀ col : Fin numVars, (index.1 ≤ row.1 ∧ index.1 ≤ col.1 ∧ (row.1 = index.1 ∨ col.1 = index.1)) → M row col = 0
+      then ⟨⟨one_eqn, one_eqn⟩, ⟨one_var, one_var⟩⟩
+    else
+    ⟨⟨zeroOutColMatrixInverse swapped ⟨index.1, by omega⟩ (index.2),rowSwap ⟩, ⟨ colSwap, zeroOutRowMatrixInverse swapped index (by omega) ⟩⟩
+
+lemma pivotAtIndexInverseTuple_verify₁
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    : let tuple := pivotAtIndexTuple M index
+      let inverse_tuple := pivotAtIndexInverseTuple M index
+      inverse_tuple.1.1 * tuple.1.1 = 1 := by
+  simp [pivotAtIndexInverseTuple, pivotAtIndexTuple]
+  set N₁ := (makeNonZeroAtDiag M index).1
+  set N₂ := (makeNonZeroAtDiag M index).2
+  aesop <;>
+  apply Matrix.mul_eq_one_comm.mp <;>
+  apply zeroOutColMatrixInverse_is_inverse
+
+lemma pivotAtIndexInverseTuple_verify₂
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    : let tuple := pivotAtIndexTuple M index
+      let inverse_tuple := pivotAtIndexInverseTuple M index
+      inverse_tuple.2.2 * tuple.2.2 = 1 := by
+  simp [pivotAtIndexInverseTuple, pivotAtIndexTuple]
+  set N₁ := (makeNonZeroAtDiag M index).1
+  set N₂ := (makeNonZeroAtDiag M index).2
+  aesop <;>
+  apply zeroOutRowMatrixInverse_is_inverse
+
+lemma pivotAtIndexInverseTuple_verify
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    : let tuple := pivotAtIndexTuple M index
+      let inverse_tuple := pivotAtIndexInverseTuple M index
+      inverse_tuple.1.2 * inverse_tuple.1.1 * tuple.1.1 * tuple.1.2 * M * tuple.2.1 * tuple.2.2 * inverse_tuple.2.2 * inverse_tuple.2.1 = M := by
+  sorry
 
 /- Asserts that a matrix `M : Matrix (Fin numEqns) (Fin numVars) α` is diagonal outside the submatrix of indices greater than `index`. -/
 def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin numVars )
@@ -1098,11 +1192,11 @@ lemma list_with_index_fin {β : Type} {f : Fin numEqns → β} {a : β × (Fin n
   simp_all only
 
 /- If there exists some element on the row and column intersecting `M index index`, then after applying makeNonZeroAtDiag, we'll have a non-zero element at `M index index`. -/
+/- Lots of boilerplate code!! Will fix later haha. -/
 lemma zero_after_makeNonZeroAtDiag
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (index : Fin numVars)
     (indlteqn : index.1 < numEqns)
-    (Mdiag : diagonalOutsideInnerBlock M index)
     (exists_non_zero : ¬ ∀ row : Fin numEqns, ∀ col : Fin numVars, (index.1 ≤ row.1 ∧ index.1 ≤ col.1 ∧ (row.1 = index.1 ∨ col.1 = index.1)) → M row col = 0)
     : ((makeNonZeroAtDiag M index).1 * M * (makeNonZeroAtDiag M index).2) ⟨index.1, by omega⟩ index ≠ 0 := by
   push_neg at exists_non_zero
@@ -1157,8 +1251,23 @@ lemma zero_after_makeNonZeroAtDiag
       set ls := (List.filter (fun x => decide (↑index < x.2.1) && !decide (x.1 = 0)) (List.ofFn fun x => (M x index, x)))
       by_cases ls_len : ls.length > 0
       . set swap_col := ls[0]
-        sorry
-        /- Repeat same argument as above-/
+        simp [ls_len]
+        simp [swapRowMatrix_lemma, Matrix.of_apply]
+        have swap_in_filter : swap_col ∈ ls := by aesop
+        let f : α × (Fin numEqns) → Bool := fun x => decide (index.1 < ↑x.2) && !decide (x.1 = 0)
+        have : f swap_col := List.of_mem_filter swap_in_filter
+        have : swap_col.1 ≠ 0 := by aesop
+        have : swap_col.2 ≠ ⟨index.1, by omega⟩ := by aesop
+        have swapgtind : ⟨index.1, by omega⟩ ≠ swap_col.2  := by aesop
+        simp [swapgtind]
+        rw [← ne_eq]
+        set g : (Fin numEqns) → α := fun x => M x index with eq
+        have swap_in_list : swap_col ∈ (List.ofFn fun x => (g x, x)) := List.mem_of_mem_filter swap_in_filter
+        have swap_col_value : swap_col = (g swap_col.2 , swap_col.2) := list_with_index_fin swap_in_list
+        simp [g] at swap_col_value
+        have : swap_col.1 = M swap_col.2 index := Prod.fst_eq_iff.mpr swap_col_value
+        rw [← this]
+        assumption
       . simp [ls_len]
         have roweqind_fin : row = ⟨index.1, by omega⟩ := by aesop
         set swap_row := (M ⟨index.1, by omega⟩ col, col)
@@ -1181,8 +1290,17 @@ lemma zero_after_makeNonZeroAtDiag
         have : index.1 ≠ swap_row_first.2 := by omega
         have swap_neq : index ≠ swap_row_first.2 := fun a => this (congrArg Fin.val a)
         simp [swap_neq]
-        sorry
-        /- Repeat same argument as above-/
+        set g : (Fin numVars) → α := fun x => M ⟨index.1, by omega⟩ x with eq
+        set ls₀ := (List.ofFn (fun x => (g x, x)))
+        have : swap_row_first ∈ ls₀ := List.mem_of_mem_filter swap_row_first_in_ls'
+        have swap_row_first_as_g : swap_row_first = (g swap_row_first.2, swap_row_first.2) := by
+          apply list_with_index_fin
+          aesop
+        have : swap_row_first.1 = M ⟨index.1, by omega⟩ swap_row_first.2 := by
+          apply Prod.fst_eq_iff.mpr
+          rw [swap_row_first_as_g]
+        rw [← this]
+        assumption
   . simp [Mzero]
 
 end SwapLemmas
@@ -1305,7 +1423,7 @@ lemma same_zeroOutRowMatrix
   by_cases non_zero : M ⟨col_index.1, by omega⟩ col_index = 0
   . aesop (add simp zeroOutRowMatrix_lemma_when_zero)
   . have non_zero' : ((zeroOutColMatrix' M ⟨col_index.1, by omega⟩ col_index.2) * M) ⟨col_index.1, by omega⟩ col_index ≠ 0 := by aesop
-    simp [zeroOutRowMatrix', constIndicator, non_zero, add_assoc, non_zero']
+    simp [zeroOutRowMatrix', non_zero_indicator, non_zero, add_assoc, non_zero']
     apply Fintype.sum_congr
     intro col
     aesop (add simp values_unchanged_by_zeroOutColMatrix)
