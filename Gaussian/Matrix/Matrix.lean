@@ -1750,6 +1750,13 @@ def squashArrayOfTuples
     : Array β :=
   as.foldl (fun x y => (x.push y.1).push y.2) (#[])
 
+def diagonalizeLeftUptok
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (k : Fin ((min numVars numEqns) + 1))
+    : Array (Matrix (Fin numEqns) (Fin numEqns) α) :=
+  squashArrayOfTuples (Array.ofFn (fun n : Fin k => pivotAtIndexTuple (n_thDiagonaliseMatrix M ⟨n.1 - 1, by omega⟩) ⟨n.1, by omega⟩ |>.1))
+
+diagonalizeLeftUptok * M * diagonalizeRightUptok = n_thDiagonaliseMatrix
 
 /- A vector contaning all the elements to the left of M in `diagonaliseMatrix M`, specifically all the row operations. -/
 def diagonalizeLeft
@@ -1781,7 +1788,8 @@ def diagonalizeRightMatrix
 lemma check_diagonalize
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (var_pos : numVars > 0)
-    : diagonaliseMatrix M var_pos = (diagonalizeLeft M) * M * (diagonalizeRight M) := sorry
+    : diagonaliseMatrix M var_pos =  (diagonalizeLeftMatrix M) * M * (diagonalizeRightMatrix M) := by
+  rw [diagonalizeLeftMatrix, diagonalizeRightMatrix, diagonaliseMatrix]
 
 
 lemma diagonalizeLeft_invertible
