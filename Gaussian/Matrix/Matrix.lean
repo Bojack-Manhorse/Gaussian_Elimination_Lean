@@ -1705,7 +1705,7 @@ lemma diagonal_after_pivot_secondLastFold
   have : diagonalOutsideInnerBlock (secondLastFold M var_pos) ⟨minn - 1, by omega⟩ := n_th_diagonal_secondLastFold M var_pos eqn_pos
   have diag_out : diagonalOutsideInnerBlock (pivoted) ⟨minn - 1, by omega⟩ := by
     apply diagonalOutsideInnerBlock_preserved_by_pivot
-    . aesop; omega
+    . simp_all only [gt_iff_lt, minn]; omega
     . assumption
   intro minnt row col row_neq_col
   have eq : minn = minnt := rfl
@@ -1756,7 +1756,7 @@ def diagonalizeLeftUptok
     : Array (Matrix (Fin numEqns) (Fin numEqns) α) :=
   squashArrayOfTuples (Array.ofFn (fun n : Fin k => pivotAtIndexTuple (n_thDiagonaliseMatrix M ⟨n.1 - 1, by omega⟩) ⟨n.1, by omega⟩ |>.1))
 
-diagonalizeLeftUptok * M * diagonalizeRightUptok = n_thDiagonaliseMatrix
+--diagonalizeLeftUptok * M * diagonalizeRightUptok = n_thDiagonaliseMatrix
 
 /- A vector contaning all the elements to the left of M in `diagonaliseMatrix M`, specifically all the row operations. -/
 def diagonalizeLeft
@@ -1790,11 +1790,11 @@ lemma check_diagonalize
     (var_pos : numVars > 0)
     : diagonaliseMatrix M var_pos =  (diagonalizeLeftMatrix M) * M * (diagonalizeRightMatrix M) := by
   rw [diagonalizeLeftMatrix, diagonalizeRightMatrix, diagonaliseMatrix]
-
+  sorry
 
 lemma diagonalizeLeft_invertible
     (M : Matrix (Fin numEqns) (Fin numVars) α)
-    : [Invertible (Array.foldr (· * ·) (1 : Matrix (Fin numEqns) (Fin numEqns) α) (diagonalizeLeft M).toArray)] := sorry
+    : Matrix.det ((Array.foldr (· * ·) (1 : Matrix (Fin numEqns) (Fin numEqns) α) (diagonalizeLeft M))) ≠ 0 := by sorry
 
 /- A vector containing all the elements to the right of M in `diagonaliseMatrix M`, so all the column operations. -/
 
@@ -1803,7 +1803,8 @@ lemma diagonalizeLeft_invertible
 
 lemma verify_diagonalize_left_right
     (M : Matrix (Fin numEqns) (Fin numVars) α)
-    : diagonaliseMatrix M = (Array.foldr (· * ·) (1 : Matrix (Fin numEqns) (Fin numEqns) α) (diagonalizeLeft M).toArray) * M * (Array.foldl (· * ·) (1 : Matrix (Fin numVars) (Fin numVars) α) (diagonalizeRight M).toArray) := sorry
+    (vars_pos : numVars > 0)
+    : diagonaliseMatrix M vars_pos = (Array.foldr (· * ·) (1 : Matrix (Fin numEqns) (Fin numEqns) α) (diagonalizeLeft M)) * M * (Array.foldl (· * ·) (1 : Matrix (Fin numVars) (Fin numVars) α) (diagonalizeRight M)) := sorry
 
 def get_solution_of_system
     (system : LinearSystem numEqns numVars α)
