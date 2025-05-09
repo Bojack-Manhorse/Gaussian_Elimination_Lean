@@ -1046,6 +1046,12 @@ def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index
     : Prop :=
   ∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
 
+/- Alternate version which allows `index` to be equal to `numVars`. -/
+def diagonalOutsideInnerBlock' (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin (numVars + 1) )
+    : Prop :=
+  if h : index.1 = numVars then True
+  else diagonalOutsideInnerBlock M ⟨index.1, by omega⟩--∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
+
 /-
 lemma diagonalOutsideInnerBlock_implies_diagonal
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -1140,6 +1146,24 @@ lemma diagonalOutsideInnerBlock_preserved_under_swapRowMatrix
       aesop
     . aesop
 
+lemma diagonalOutsideInnerBlock_preserved_under_swapRowMatrix'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin (numVars + 1))
+    (i j : Fin numEqns)
+    (h₁ : index.1 ≤ i.1) (h₂ : index.1 ≤ j.1)
+    (Mdiag : diagonalOutsideInnerBlock' M index)
+    : diagonalOutsideInnerBlock' ((swapRowMatrix i j) * M) index := by
+  rw [diagonalOutsideInnerBlock']
+  apply Or.elim (lt_or_eq_of_le (Nat.lt_succ_iff.mp index.2))
+  . intro ind_lt_vars
+    have neq : ¬ index.1 = numVars := by aesop
+    simp only [neq, ↓reduceIte, ne_eq, ↓reduceDIte]
+    simp only [diagonalOutsideInnerBlock', neq, ↓reduceIte] at Mdiag
+    apply diagonalOutsideInnerBlock_preserved_under_swapRowMatrix <;> aesop
+  . intro ind_eq_vars
+    have eq : index = ↑numVars := by aesop
+    simp [eq]
+
 /- Same as above but with column operations. -/
 lemma diagonalOutsideInnerBlock_preserved_under_swapColMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -1163,6 +1187,25 @@ lemma diagonalOutsideInnerBlock_preserved_under_swapColMatrix
       have : i.1 ≠ row.1 := by omega
       aesop
     . aesop
+
+lemma diagonalOutsideInnerBlock_preserved_under_swapColMatrix'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin (numVars + 1))
+    (i j : Fin numVars)
+    (h₁ : index.1 ≤ i.1)
+    (h₂ : index.1 ≤ j.1)
+    (Mdiag : diagonalOutsideInnerBlock' M index)
+    : diagonalOutsideInnerBlock' (M * (swapColMatrix i j)) index := by
+  rw [diagonalOutsideInnerBlock']
+  apply Or.elim (lt_or_eq_of_le (Nat.lt_succ_iff.mp index.2))
+  . intro ind_lt_vars
+    have neq : ¬ index.1 = numVars := by aesop
+    simp only [neq, ↓reduceIte, ne_eq, ↓reduceDIte]
+    simp only [diagonalOutsideInnerBlock', neq, ↓reduceIte] at Mdiag
+    apply diagonalOutsideInnerBlock_preserved_under_swapColMatrix <;> aesop
+  . intro ind_eq_vars
+    have eq : index = ↑numVars := by aesop
+    simp [eq]
 
 /- If we apply `makeNonZeroAtDiag` to a matrix `M`, then it preserves the `diagonalOutsideInnerBlock` property. -/
 lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag
@@ -1197,7 +1240,7 @@ lemma list_with_index_fin {β : Type} {f : Fin numEqns → β} {a : β × (Fin n
   subst h
   simp_all only
 
-/- If there exists some element on the row and column intersecting `M index index`, then after applying makeNonZeroAtDiag, we'll have a non-zero element at `M index index`. -/
+/- If there exists some non-zero element on the row and column intersecting `M index index`, then after applying makeNonZeroAtDiag, we'll have a non-zero element at `M index index`. -/
 /- Lots of boilerplate code!! Will fix later haha. -/
 lemma zero_after_makeNonZeroAtDiag
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -1638,6 +1681,8 @@ lemma diagonalOutsideInnerBlock_increased_by_pivot
         rw [← pivot_eq]
         specialize pivotMdiag row col (by aesop) (by aesop)
         exact pivotMdiag
+
+
 
 end ApplyingPivot
 
