@@ -32,6 +32,28 @@ lemma diagonalOutsideInnerBlock_preserved_under_AddRowTransvection
     aesop
   . aesop
 
+lemma diagonalOutsideInnerBlock_preserved_under_AddRowTransvection'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (coef : α)
+    (i j : Fin numEqns)
+    (h₁ : index.1 ≤ i.1)
+    (h₂ : index.1 ≤ j.1)
+    (Mdiag : diagonalOutsideInnerBlock' M index)
+    : diagonalOutsideInnerBlock' ((addRowTransvection coef i j) * M) index := by
+  intro row col roworcol rowneqcol
+  rw [addRowTransvection_lemma, Matrix.of_apply]
+  by_cases roweqi : row = i
+  . simp only [roweqi, ↓reduceIte]
+    have : ¬ row.1 < index.1 := by omega
+    have colltind : col.1 < index.1 := by aesop
+    have colneqi : i.1 ≠ col.1 := by omega
+    have colneqj : j.1 ≠ col.1 := by omega
+    have : M i col = 0 := Mdiag i col (by omega) (colneqi)
+    have : M j col = 0 := Mdiag j col (by omega) (colneqj)
+    aesop
+  . aesop
+
 lemma diagonalOutsideInnerBlock_preserved_under_AddColTransvection
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (index : Fin numVars)
@@ -46,6 +68,28 @@ lemma diagonalOutsideInnerBlock_preserved_under_AddColTransvection
   by_cases coleqj : col = j
   . simp only [coleqj, ↓reduceIte]
     have rowltind : row < index.1 := by omega
+    have rowneqi : row.1 ≠ i.1 := by omega
+    have rowneqj : row.1 ≠ j.1 := by omega
+    have : M row j = 0 := Mdiag row j (by omega) (rowneqj)
+    have : M row i = 0 := Mdiag row i (by omega) (rowneqi)
+    aesop
+  . aesop
+
+lemma diagonalOutsideInnerBlock_preserved_under_AddColTransvection'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (coef : α)
+    (i j : Fin numVars)
+    (h₁ : index.1 ≤ i.1)
+    (h₂ : index.1 ≤ j.1)
+    (Mdiag : diagonalOutsideInnerBlock' M index)
+    : diagonalOutsideInnerBlock' (M * (addColTransvection coef i j)) index := by
+  intro row col roworcol rowneqcol
+  rw [addColTransvection_lemma, Matrix.of_apply]
+  by_cases coleqj : col = j
+  . simp only [coleqj, ↓reduceIte]
+    have : ¬ col.1 < index.1 := by omega
+    have rowltind : row < index.1 := by aesop
     have rowneqi : row.1 ≠ i.1 := by omega
     have rowneqj : row.1 ≠ j.1 := by omega
     have : M row j = 0 := Mdiag row j (by omega) (rowneqj)
@@ -82,6 +126,35 @@ lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix
       field_simp
       assumption
 
+lemma diagonalOutsideInnerBlock_preserved_under_zeroOutColMatrix'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (indlteqns : index.1 < numEqns)
+    (Mdiag : diagonalOutsideInnerBlock' M index)
+    : diagonalOutsideInnerBlock'
+      ((zeroOutColMatrix' M ⟨index.1,indlteqns⟩ index.2 ) * M) index := by
+  intro row col roworcol rowneqcol
+  rw [zeroOutColMatrix_lemma]
+  simp [Matrix.of_apply]
+  apply Or.elim roworcol
+  . intro rowltind
+    have rowneqind: row ≠ ⟨↑index, indlteqns⟩ := by aesop
+    simp [rowneqind]
+    have Mzero : M row col = 0 := by aesop
+    aesop
+  . intro colltind
+    have : M row col = 0 := Mdiag row col roworcol rowneqcol
+    split
+    . assumption
+    . have Mzero': M ⟨index.1, indlteqns⟩ col = 0 := by
+        simp at colltind
+        have indneqcol : index.1 ≠ col.1 := by omega
+        specialize Mdiag (⟨index.1, by omega⟩) col (by aesop) (indneqcol)
+        exact Mdiag
+      rw [Mzero']
+      field_simp
+      assumption
+
 /- Same as above but for `zeroOutRowMatrix`. -/
 lemma diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -89,6 +162,30 @@ lemma diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix
     (indlteqns : index.1 < numEqns)
     (Mdiag : diagonalOutsideInnerBlock M index)
     : diagonalOutsideInnerBlock (M * (zeroOutRowMatrix' M index (by omega))) index := by
+  intro row col roworcol rowneqcol
+  rw [zeroOutRowMatrix_lemma]
+  simp [Matrix.of_apply]
+  apply Or.elim roworcol
+  . intro rowltind
+    have : M row col = 0 := Mdiag row col roworcol rowneqcol
+    aesop
+  . intro colltind
+    have Mzero : M row col = 0 := Mdiag row col roworcol rowneqcol
+    have colneqind: col ≠ index := by aesop
+    simp [colneqind]
+    have Mzero' : M ⟨index.1, by omega⟩ col = 0 := by
+      have : index.1 ≠ col.1 := by omega
+      specialize Mdiag ⟨index.1, by omega⟩ col (by aesop (add simp colltind)) (by assumption)
+      exact Mdiag
+    rw [Mzero, Mzero']
+    field_simp
+
+lemma diagonalOutsideInnerBlock_preserved_under_zeroOutRowMatrix'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (indlteqns : index.1 < numEqns)
+    (Mdiag : diagonalOutsideInnerBlock' M index)
+    : diagonalOutsideInnerBlock' (M * (zeroOutRowMatrix' M index (by omega))) index := by
   intro row col roworcol rowneqcol
   rw [zeroOutRowMatrix_lemma]
   simp [Matrix.of_apply]

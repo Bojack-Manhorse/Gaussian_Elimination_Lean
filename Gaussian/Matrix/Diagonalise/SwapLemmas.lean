@@ -102,31 +102,19 @@ lemma diagonalOutsideInnerBlock_preserved_under_swapRowMatrix'
     (h₁ : index.1 ≤ i.1) (h₂ : index.1 ≤ j.1)
     (Mdiag : diagonalOutsideInnerBlock' M index)
     : diagonalOutsideInnerBlock' ((swapRowMatrix i j) * M) index := by
-  rw [diagonalOutsideInnerBlock']
-  apply Or.elim (lt_or_eq_of_le (Nat.lt_succ_iff.mp index.2))
-  . intro ind_lt_vars
-    have neq : ¬ index.1 = numVars := by aesop
-    simp only [neq, ↓reduceIte, ne_eq, ↓reduceDIte]
-    simp only [diagonalOutsideInnerBlock', neq, ↓reduceIte] at Mdiag
-    apply diagonalOutsideInnerBlock_preserved_under_swapRowMatrix <;> aesop
-  . intro ind_eq_vars
-    have eq : index.1 = numVars := by aesop
-    simp only [eq, ↓reduceDIte, diagonalOutsideInnerBlock'] at *
-    rw [isDiagonal]
-    intro row col roworcol
-    rw [swapRowMatrix_lemma, Matrix.of_apply]
-    split
-    . have : j.1 > col := by omega
-      have : j.1 ≠ col := by omega
-      apply Mdiag
-      assumption
-    . split
-      . have : i.1 > col := by omega
-        have : i.1 ≠ col := by omega
-        apply Mdiag
-        assumption
-      . apply Mdiag
-        assumption
+  rw [diagonalOutsideInnerBlock'] at *
+  intro row col row_or_col row_neq_col
+  rw [swapRowMatrix_lemma, Matrix.of_apply]
+  by_cases roweqi : row = i
+  . simp only [roweqi, ↓reduceIte]
+    have : ¬ row.1 < index.1 := by omega
+    exact Mdiag j col (by aesop) (by omega)
+  . simp only [roweqi, ↓reduceIte]
+    by_cases roweqj : row = j
+    . simp only [roweqj, ↓reduceIte]
+      have : col.1 < index.1 := by omega
+      exact Mdiag i col (by aesop) (by omega)
+    . aesop
 
 /- Same as above but with column operations. -/
 lemma diagonalOutsideInnerBlock_preserved_under_swapColMatrix
@@ -160,19 +148,20 @@ lemma diagonalOutsideInnerBlock_preserved_under_swapColMatrix'
     (h₂ : index.1 ≤ j.1)
     (Mdiag : diagonalOutsideInnerBlock' M index)
     : diagonalOutsideInnerBlock' (M * (swapColMatrix i j)) index := by
-  rw [diagonalOutsideInnerBlock']
-  apply Or.elim (lt_or_eq_of_le (Nat.lt_succ_iff.mp index.2))
-  . intro ind_lt_vars
-    have neq : ¬ index.1 = numVars := by aesop
-    simp only [neq, ↓reduceIte, ne_eq, ↓reduceDIte]
-    simp only [diagonalOutsideInnerBlock', neq, ↓reduceIte] at Mdiag
-    apply diagonalOutsideInnerBlock_preserved_under_swapColMatrix <;> aesop
-  . intro ind_eq_vars
-    have eq : index = ↑numVars := by aesop
-    simp [eq, diagonalOutsideInnerBlock'] at *
-    have : ¬ i.1 < numVars := by omega
-    have : i.1 < numVars := i.2
-    contradiction
+  intro row col roworcol rowneqcol
+  rw [swapColMatrix_lemma, Matrix.of_apply]
+  by_cases coleqi : col = i
+  . simp only [coleqi, ↓reduceIte]
+    have : row < index.1 := by omega
+    have : j.1 ≠ row.1 := by omega
+    aesop
+  . simp [coleqi]
+    by_cases coleqj : col = j
+    . simp [coleqj]
+      have : row < index.1 := by omega
+      have : i.1 ≠ row.1 := by omega
+      aesop
+    . aesop
 
 /- If we apply `makeNonZeroAtDiag` to a matrix `M`, then it preserves the `diagonalOutsideInnerBlock` property. -/
 lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag
@@ -198,6 +187,30 @@ lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag
     obtain ⟨i_col, j_col, h_col⟩ := col_assumption
     rw [h_col.1]
     aesop (add simp diagonalOutsideInnerBlock_preserved_under_swapColMatrix)
+
+lemma diagonalOutsideInnerBlock_preserved_under_makeNonZeroAtDiag'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (index : Fin numVars)
+    (Mdiag : diagonalOutsideInnerBlock' M index)
+    : let pair := makeNonZeroAtDiag M index;
+      diagonalOutsideInnerBlock' (pair.1 * M * pair.2) index := by
+  intro pair
+  aesop
+  have row_assumption : _ := only_swaps_or_indentity_from_makeNonZeroAtDiag_right M index
+  obtain ⟨i_row, j_row, h_row⟩ := row_assumption
+  . have col_assumption : _ := only_swaps_or_indentity_from_makeNonZeroAtDiag_left M index
+    obtain ⟨i_col, j_col, h_col⟩ := col_assumption
+    rw [h_row.1, h_col.1]
+    have row_diag : diagonalOutsideInnerBlock' (swapRowMatrix i_row j_row * M) index := by
+      refine diagonalOutsideInnerBlock_preserved_under_swapRowMatrix' M index i_row j_row ?_ ?_ (by aesop)
+      . aesop
+      . aesop
+    aesop (add simp diagonalOutsideInnerBlock_preserved_under_swapColMatrix')
+  . aesop
+    have col_assumption : _ := only_swaps_or_indentity_from_makeNonZeroAtDiag_left M index
+    obtain ⟨i_col, j_col, h_col⟩ := col_assumption
+    rw [h_col.1]
+    aesop (add simp diagonalOutsideInnerBlock_preserved_under_swapColMatrix')
 
 lemma list_with_index_fin {β : Type} {f : Fin numEqns → β} {a : β × (Fin numEqns)}
     (a_in_list : a ∈ List.ofFn (fun x : Fin numEqns => (f x, x)))

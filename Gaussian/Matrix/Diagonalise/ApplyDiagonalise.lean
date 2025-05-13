@@ -1,3 +1,4 @@
+import Gaussian.Matrix.Diagonalise.PivotFunctions
 import Gaussian.Matrix.Diagonalise.ApplyingPivot
 
 namespace MatrixElimination
@@ -10,9 +11,15 @@ section ApplyDiagonalise
 
 def n_thDiagonaliseMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
-    (n : Fin numVars)
+    (n : Fin (numVars))
     : Matrix (Fin numEqns) (Fin numVars) α :=
   Fin.foldl n.1 (fun Mat num => pivotAtIndex Mat ⟨num.1, by omega⟩) M
+
+def n_thDiagonaliseMatrix'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (n : Fin (numVars))
+    : Matrix (Fin numEqns) (Fin numVars) α :=
+  Fin.foldl (n.1 + 1) (fun Mat num => pivotAtIndex Mat ⟨num.1, by omega⟩) M
 
 lemma fold_apply
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -20,6 +27,20 @@ lemma fold_apply
     : Fin.foldl (n + 1) (fun Mat num => pivotAtIndex Mat ⟨num, by omega⟩) M  = pivotAtIndex (Fin.foldl (n) (fun Mat num => pivotAtIndex Mat ⟨num, by omega⟩) M) ⟨n, by omega⟩ := by
   rw [Fin.foldl_succ_last]
   rfl
+
+lemma fold_apply'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (n : Fin (numVars))
+    : Fin.foldl (n + 1) (fun Mat num => pivotAtIndex Mat ⟨num, by omega⟩) M = pivotAtIndex (Fin.foldl (n) (fun Mat num => pivotAtIndex Mat ⟨num, by omega⟩) M) ⟨n, by omega⟩ := by
+  rw [Fin.foldl_succ_last]
+  rfl
+
+lemma fold_apply_corr
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (n : Fin (numVars))
+    (hn : n + 1 < numVars)
+    : n_thDiagonaliseMatrix' M ⟨n + 1, by omega⟩ = pivotAtIndex (n_thDiagonaliseMatrix' M ⟨n, by omega⟩) ⟨n + 1, by omega⟩ := by
+  apply fold_apply'
 
 lemma n_th_diagonal_after_n_thDiagonaliseMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
@@ -37,6 +58,58 @@ lemma n_th_diagonal_after_n_thDiagonaliseMatrix
     . aesop
     . exact ih
 
+lemma n_th_diagonal_after_n_thDiagonaliseMatrix_aux
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (n : Fin (numVars))
+    (n_lt_eqns : n.1 + 1 < numEqns)
+    (eqn_pos : numEqns > 0)
+    : diagonalOutsideInnerBlock' (n_thDiagonaliseMatrix' M n) ⟨n.1 + 1, by omega⟩ := by
+  rw [n_thDiagonaliseMatrix']
+  rcases n with ⟨n, hn⟩
+  induction' n with n ih
+  . simp
+    change diagonalOutsideInnerBlock' (pivotAtIndex M ⟨0, by omega⟩) ⟨1, by omega⟩
+    apply diagonalOutsideInnerBlock_increased_by_pivot' M
+    . simp
+      assumption
+    . apply diagonalOutsideInnerBlock_holds_for_zero
+  . rw [fold_apply' M ⟨n + 1, hn⟩]
+    specialize ih (by omega) (Nat.lt_of_succ_lt n_lt_eqns)
+    simp at *
+    set middle := Fin.foldl (n + 1) (fun Mat num => pivotAtIndex Mat ⟨↑num, by omega⟩) M
+    apply diagonalOutsideInnerBlock_increased_by_pivot' middle ⟨n + 1, hn⟩ (by simpa)
+    simp only [Nat.cast_add, Nat.cast_one]
+    sorry
+
+lemma n_th_diagonal_after_n_thDiagonaliseMatrix'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (n : Fin (numVars))
+    (n_lt_eqns : n.1  < numEqns)
+    (eqn_pos : numEqns > 1)
+    : diagonalOutsideInnerBlock' (n_thDiagonaliseMatrix' M n) ⟨n.1 + 1, by omega⟩ := by
+  have or_statement : n = numEqns - 1 ∨ n + 1 < numEqns := by omega
+  apply Or.elim or_statement
+  . intro
+    have : n < numEqns := by omega
+    have : diagonalOutsideInnerBlock' (n_thDiagonaliseMatrix' M ⟨n.1 - 1, by omega⟩) n := by
+      #check n_th_diagonal_after_n_thDiagonaliseMatrix_aux M ⟨n.1 - 1, tsub_lt_of_lt n.2⟩
+      have assump : _ := n_th_diagonal_after_n_thDiagonaliseMatrix_aux M ⟨n.1 - 1, tsub_lt_of_lt n.2⟩ (by simp; omega) (by omega)
+      have : n.1 > 0 := by omega
+      have : n.1 - 1 + 1 = n := by omega
+      simp at *
+      apply n_th_diagonal_after_n_thDiagonaliseMatrix_aux M ⟨n.1 - 1, tsub_lt_of_lt n.2⟩
+      sorry
+
+    sorry
+  . intro
+    apply n_th_diagonal_after_n_thDiagonaliseMatrix_aux
+    . assumption
+    . omega
+
+
+
+example (n k : Nat) (h : n < k) : n - 1 < k := by exact tsub_lt_of_lt h
+
 def secondLastFold
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (var_pos : numVars > 0)
@@ -52,12 +125,38 @@ lemma n_th_diagonal_secondLastFold
     aesop
     omega
 
+def entireFold
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (var_pos : numVars > 0)
+    :=
+    n_thDiagonaliseMatrix' M ⟨(min numVars numEqns) - 1, by omega⟩
+
+lemma entireFold_is_diagonal
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (var_pos : numVars > 0)
+    : isDiagonal (entireFold M vars_pos) := by
+  set entire_fold := entireFold M vars_pos
+  set minn := (min numVars numEqns) - 1
+  apply (diagonalOutsideInnerBlock_same_as_isDiagonal entire_fold).mp
+  have eq : entire_fold = n_thDiagonaliseMatrix' M ⟨minn, by omega⟩ := by
+    aesop
+  rw [eq]
+  apply n_th_diagonal_after_n_thDiagonaliseMatrix' M ⟨minn, by omega⟩
+
 
 def diagonaliseMatrix
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (var_pos : numVars > 0)
     : Matrix (Fin numEqns) (Fin numVars) α :=
   pivotAtIndex (secondLastFold M var_pos) ⟨(min numVars numEqns )- 1, by omega⟩
+
+lemma diagonal_after_pivot_entireFold
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    (var_pos : numVars > 0)
+    (eqn_pos : numEqns > 0)
+    : isDiagonal (entireFold M var_pos) := by
+  apply (diagonalOutsideInnerBlock_same_as_isDiagonal (entireFold M var_pos)).mp
+
 
 lemma diagonal_after_pivot_secondLastFold
     (M : Matrix (Fin numEqns) (Fin numVars) α)

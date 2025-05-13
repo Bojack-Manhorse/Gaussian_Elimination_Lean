@@ -626,12 +626,20 @@ def diagonalOutsideInnerBlock (M : Matrix (Fin numEqns) (Fin numVars) α) (index
 /- Alternate version which allows `index` to be equal to `numVars`. -/
 def diagonalOutsideInnerBlock' (M : Matrix (Fin numEqns) (Fin numVars) α) (index : Fin (numVars + 1) )
     : Prop :=
-  if h : index.1 = numVars then isDiagonal M
-  else diagonalOutsideInnerBlock M ⟨index.1, by omega⟩--∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
+  ∀ row : Fin numEqns, ∀ col : Fin numVars, (row.1 < index.1 ∨ col.1 < index.1) → row.1 ≠ col.1 → M row col = 0
 
-/-
-lemma diagonalOutsideInnerBlock_implies_diagonal
+lemma diagonalOutsideInnerBlock_same_as_isDiagonal
     (M : Matrix (Fin numEqns) (Fin numVars) α)
--/
+    : diagonalOutsideInnerBlock' M ⟨numVars, by omega⟩ ↔ isDiagonal M := by
+  rw [diagonalOutsideInnerBlock', isDiagonal]
+  aesop
+
+lemma diagonalOutsideInnerBlock_holds_for_zero
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    : diagonalOutsideInnerBlock' M ⟨0, by omega⟩ := by
+  intro row col row_or_col row_neq_col
+  aesop
+
+
 
 end PivotFunctions
