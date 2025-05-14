@@ -634,6 +634,19 @@ lemma diagonalOutsideInnerBlock_same_as_isDiagonal
   rw [diagonalOutsideInnerBlock', isDiagonal]
   aesop
 
+lemma diagonalOutsideInnerBlock_same_as_isDiagonal'
+    (M : Matrix (Fin numEqns) (Fin numVars) α)
+    : diagonalOutsideInnerBlock' M ⟨min numVars numEqns, by omega⟩ ↔ isDiagonal M := by
+  rw [diagonalOutsideInnerBlock', isDiagonal]
+  apply Iff.intro
+  . intro h
+    intro i j i_neq_j
+    have : ↑i < numVars ⊓ numEqns ∨ ↑j <numVars ⊓ numEqns := by
+      apply Or.elim (Nat.lt_or_ge numVars numEqns) <;> intro; omega; omega
+    specialize h i j this i_neq_j
+    assumption
+  . aesop
+
 lemma diagonalOutsideInnerBlock_holds_for_zero
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     : diagonalOutsideInnerBlock' M ⟨0, by omega⟩ := by

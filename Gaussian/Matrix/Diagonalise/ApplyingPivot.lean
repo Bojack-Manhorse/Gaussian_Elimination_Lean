@@ -182,7 +182,7 @@ lemma diagonalOutsideInnerBlock_increased_by_pivot
 lemma diagonalOutsideInnerBlock_increased_by_pivot'
     (M : Matrix (Fin numEqns) (Fin numVars) α)
     (index : Fin (numVars))
-    (indlteqns : index.1.succ < numEqns)
+    (indlteqns : index.1.succ ≤ numEqns)
     (Mdiag : diagonalOutsideInnerBlock' M index)
     : (diagonalOutsideInnerBlock' (pivotAtIndex M index) ⟨index.1 + 1, by omega⟩) := by
   have pivotMdiag : diagonalOutsideInnerBlock' (pivotAtIndex M index) index :=
